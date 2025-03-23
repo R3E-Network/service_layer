@@ -110,7 +110,7 @@ jobs:
           go build -o artifacts/worker ./cmd/worker
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: artifacts/
@@ -271,7 +271,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-reports
           path: security_reports/
@@ -348,7 +348,7 @@ jobs:
         if: always()
 
       - name: Upload performance reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-reports
           path: performance_reports/
@@ -390,7 +390,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docker-image
           path: /tmp/neo-n3-service-layer.tar
@@ -415,7 +415,7 @@ jobs:
           helm package devops/helm/service-layer -d helm-packages
 
       - name: Upload Helm package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: helm-packages
           path: helm-packages/
