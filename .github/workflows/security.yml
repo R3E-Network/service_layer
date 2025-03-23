@@ -84,7 +84,7 @@ jobs:
           npm audit --json > ../npm-audit.json || true
           
       - name: Upload Vulnerability Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vulnerability-reports
           path: |
@@ -147,7 +147,7 @@ jobs:
         run: go tool cover -html=security-reports/security_coverage.out -o security-reports/security_coverage.html
         
       - name: Upload Test Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-test-results
           path: security-reports/
