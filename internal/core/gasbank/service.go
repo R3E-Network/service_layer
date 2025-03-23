@@ -245,7 +245,7 @@ func (s *Service) verifyDepositTransaction(ctx context.Context, address, txHash 
 	}
 
 	// Get transaction from blockchain
-	tx, err := s.blockchainClient.GetTransaction(txHash)
+	_, err = s.blockchainClient.GetTransaction(txHash)
 	if err != nil {
 		return fmt.Errorf("failed to get transaction from blockchain: %w", err)
 	}

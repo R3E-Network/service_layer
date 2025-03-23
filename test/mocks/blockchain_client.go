@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
 )
 
 // BlockchainClient is a mock implementation of the blockchain client

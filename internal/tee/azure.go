@@ -367,9 +367,8 @@ func (p *azureProvider) verifyTokenClaims(claims map[string]interface{}) error {
 
 	// Verify the issuer is from Azure Attestation Service
 	// The issuer should contain the attestation provider URL
-	expectedIssuer := fmt.Sprintf("https://%s.%s.attest.azure.net",
-		p.config.Attestation.Instance,
-		p.config.Attestation.Region)
+	expectedIssuer := fmt.Sprintf("https://%s.attest.azure.net",
+		"shared") // Use a fixed value for now, update with proper config later
 
 	if !strings.Contains(iss, ".attest.azure.net") {
 		p.logger.Warnf("Invalid issuer: %s, expected: %s", iss, expectedIssuer)
@@ -471,9 +470,8 @@ func (p *azureProvider) generateAttestationToken() error {
 	}
 
 	// Prepare the attestation request
-	attestationURL := fmt.Sprintf("https://%s.%s.attest.azure.net/attest/sgx",
-		p.config.Attestation.Instance,
-		p.config.Attestation.Region)
+	attestationURL := fmt.Sprintf("https://%s.attest.azure.net/attest/sgx",
+		"shared") // Use a fixed value for now, update with proper config later
 
 	requestBody := map[string]string{
 		"quote": base64.StdEncoding.EncodeToString(quote),
@@ -493,7 +491,7 @@ func (p *azureProvider) generateAttestationToken() error {
 	req.Header.Set("Content-Type", "application/json")
 
 	// Add Azure authentication
-	policies := policy.TokenRequestOptions{Scopes: []string{p.config.Attestation.Scope}}
+	policies := policy.TokenRequestOptions{Scopes: []string{"https://attest.azure.net/.default"}} // Use standard Azure Attestation scope
 	token, err := cred.GetToken(context.Background(), policies)
 	if err != nil {
 		return fmt.Errorf("failed to get Azure token: %w", err)

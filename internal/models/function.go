@@ -5,22 +5,35 @@ import (
 	"time"
 )
 
-// Function represents a JavaScript function stored in the system
+// Function represents a JavaScript function to be executed in the TEE
 type Function struct {
-	ID             int       `json:"id" db:"id"`
-	UserID         int       `json:"user_id" db:"user_id"`
-	Name           string    `json:"name" db:"name"`
-	Description    string    `json:"description" db:"description"`
-	SourceCode     string    `json:"source_code" db:"source_code"`
-	Version        int       `json:"version" db:"version"`
-	Status         string    `json:"status" db:"status"`
-	Timeout        int       `json:"timeout" db:"timeout"`
-	Memory         int       `json:"memory" db:"memory"`
-	ExecutionCount int       `json:"execution_count" db:"execution_count"`
-	LastExecution  time.Time `json:"last_execution,omitempty" db:"last_execution"`
-	CreatedAt      time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
-	Secrets        []string  `json:"secrets,omitempty" db:"-"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	OwnerID    string    `json:"ownerId"`
+	Code       string    `json:"code"`
+	SecretRefs []string  `json:"secretRefs,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+}
+
+// ExecutionResult represents the outcome of a function execution
+type ExecutionResult struct {
+	ID            string        `json:"id"`
+	FunctionID    string        `json:"functionId"`
+	Status        string        `json:"status"`
+	Result        interface{}   `json:"result"`
+	Error         string        `json:"error,omitempty"`
+	ExecutionTime time.Duration `json:"executionTime"`
+	Timestamp     time.Time     `json:"timestamp"`
+	GasUsed       float64       `json:"gasUsed,omitempty"`
+}
+
+// Secret represents a securely stored credential
+type Secret struct {
+	ID        string    `json:"id"`
+	OwnerID   string    `json:"ownerId"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // Execution represents a function execution
@@ -44,19 +57,6 @@ type ExecutionLog struct {
 	Timestamp   time.Time `json:"timestamp" db:"timestamp"`
 	Level       string    `json:"level" db:"level"`
 	Message     string    `json:"message" db:"message"`
-}
-
-// ExecutionResult represents the result of a function execution
-type ExecutionResult struct {
-	ExecutionID string          `json:"execution_id"`
-	FunctionID  int             `json:"function_id"`
-	Status      string          `json:"status"`
-	StartTime   time.Time       `json:"start_time"`
-	EndTime     time.Time       `json:"end_time,omitempty"`
-	Duration    int             `json:"duration,omitempty"`
-	Result      json.RawMessage `json:"result,omitempty"`
-	Error       string          `json:"error,omitempty"`
-	Logs        []string        `json:"logs,omitempty"`
 }
 
 // ExecutionRequest represents a request to execute a function

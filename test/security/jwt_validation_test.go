@@ -11,75 +11,16 @@ import (
 	"github.com/R3E-Network/service_layer/internal/config"
 	"github.com/R3E-Network/service_layer/internal/core/auth"
 	"github.com/R3E-Network/service_layer/internal/models"
-	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-// Import MockUserRepository from auth_security_test.go
-type MockUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockUserRepository) Create(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) GetByID(id int) (*models.User, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByUsername(username string) (*models.User, error) {
-	args := m.Called(username)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
-	args := m.Called(email)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByAPIKey(apiKey string) (*models.User, error) {
-	args := m.Called(apiKey)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) Update(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) Delete(id int) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) List(offset, limit int) ([]*models.User, error) {
-	args := m.Called(offset, limit)
-	return args.Get(0).([]*models.User), args.Error(1)
-}
+// Use MockUserRepository from api_security_test.go
+// No need to redeclare it here
 
 // Setup creates a new auth service with mock dependencies
 func setupAuthService() (*auth.Service, *MockUserRepository, *config.Config) {
-	// Create logger
-	log := logger.NewLogger("test", "debug")
-
 	// Create config with secure settings
 	cfg := &config.Config{
 		Auth: config.AuthConfig{
@@ -92,8 +33,8 @@ func setupAuthService() (*auth.Service, *MockUserRepository, *config.Config) {
 	// Create mock user repository
 	mockUserRepo := new(MockUserRepository)
 
-	// Create auth service
-	authService := auth.NewService(cfg, log, mockUserRepo)
+	// Create auth service - passing nil for logger
+	authService := auth.NewService(cfg, nil, mockUserRepo)
 
 	return authService, mockUserRepo, cfg
 }
@@ -230,7 +171,7 @@ func TestJWTRequiredClaims(t *testing.T) {
 // JWT-SIG-01 & JWT-SIG-02: Verify tokens with valid/invalid signatures
 func TestJWTSignatureVerification(t *testing.T) {
 	// Setup
-	authService, mockUserRepo, cfg := setupAuthService()
+	authService, mockUserRepo, _ := setupAuthService()
 	testUser := createTestUser()
 	mockUserRepo.On("GetByUsername", "testuser").Return(testUser, nil)
 

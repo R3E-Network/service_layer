@@ -1,7 +1,6 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -9,55 +8,36 @@ import (
 type TriggerType string
 
 const (
-	// TriggerTypeCron is a time-based trigger using cron syntax
-	TriggerTypeCron TriggerType = "cron"
-	// TriggerTypePrice is a price-based trigger
-	TriggerTypePrice TriggerType = "price"
-	// TriggerTypeBlockchain is a blockchain event trigger
-	TriggerTypeBlockchain TriggerType = "blockchain"
+	TriggerTypeSchedule    TriggerType = "schedule"
+	TriggerTypePriceAlert  TriggerType = "price_alert"
+	TriggerTypeBlockHeight TriggerType = "block_height"
+	TriggerTypeTransaction TriggerType = "transaction"
 )
 
-// Trigger represents a contract automation trigger
+// Trigger represents an automated function execution condition
 type Trigger struct {
-	ID            int             `json:"id" db:"id"`
-	UserID        int             `json:"user_id" db:"user_id"`
-	FunctionID    int             `json:"function_id" db:"function_id"`
-	Name          string          `json:"name" db:"name"`
-	Description   string          `json:"description" db:"description"`
-	TriggerType   TriggerType     `json:"trigger_type" db:"trigger_type"`
-	TriggerConfig json.RawMessage `json:"trigger_config" db:"trigger_config"`
-	Status        string          `json:"status" db:"status"`
-	CreatedAt     time.Time       `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at" db:"updated_at"`
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	UserID     string                 `json:"userId"`
+	Type       TriggerType            `json:"type"`
+	FunctionID string                 `json:"functionId"`
+	Schedule   string                 `json:"schedule,omitempty"`   // CRON expression for schedule triggers
+	Condition  string                 `json:"condition,omitempty"`  // Condition expression for other triggers
+	Parameters map[string]interface{} `json:"parameters,omitempty"` // Parameters to pass to the function
+	CreatedAt  time.Time              `json:"createdAt"`
+	UpdatedAt  time.Time              `json:"updatedAt"`
+	Status     string                 `json:"status"` // active, paused, error
 }
 
-// CronTriggerConfig represents configuration for a cron trigger
-type CronTriggerConfig struct {
-	Schedule string `json:"schedule"`
-	Timezone string `json:"timezone"`
-}
-
-// PriceTriggerConfig represents configuration for a price trigger
-type PriceTriggerConfig struct {
-	AssetPair string  `json:"asset_pair"`
-	Condition string  `json:"condition"` // "above", "below", "between"
-	Threshold float64 `json:"threshold"`
-	Duration  int     `json:"duration"` // seconds the condition must be met
-}
-
-// BlockchainTriggerConfig represents configuration for a blockchain event trigger
-type BlockchainTriggerConfig struct {
-	ContractHash string `json:"contract_hash"`
-	EventName    string `json:"event_name"`
-}
-
-// TriggerEvent represents a trigger execution event
-type TriggerEvent struct {
-	ID         int       `json:"id" db:"id"`
-	TriggerID  int       `json:"trigger_id" db:"trigger_id"`
-	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
-	Status     string    `json:"status" db:"status"`
-	ExecutionID int      `json:"execution_id,omitempty" db:"execution_id"`
+// TriggerExecution represents a record of a triggered function execution
+type TriggerExecution struct {
+	ID           string    `json:"id"`
+	TriggerID    string    `json:"triggerId"`
+	FunctionID   string    `json:"functionId"`
+	Status       string    `json:"status"` // success, error
+	ExecutionID  string    `json:"executionId,omitempty"`
+	ErrorMessage string    `json:"errorMessage,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
 }
 
 // TriggerRepository defines methods for working with triggers
@@ -70,9 +50,9 @@ type TriggerRepository interface {
 	Update(trigger *Trigger) error
 	UpdateStatus(id int, status string) error
 	Delete(id int) error
-	
+
 	// Event related methods
-	CreateEvent(event *TriggerEvent) error
-	GetEventByID(id int) (*TriggerEvent, error)
-	ListEventsByTriggerID(triggerID int, offset, limit int) ([]*TriggerEvent, error)
+	CreateEvent(event *TriggerExecution) error
+	GetEventByID(id int) (*TriggerExecution, error)
+	ListEventsByTriggerID(triggerID int, offset, limit int) ([]*TriggerExecution, error)
 }

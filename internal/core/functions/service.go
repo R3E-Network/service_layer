@@ -232,8 +232,26 @@ func (s *Service) executeFunction(ctx context.Context, function *models.Function
 		s.logger.Warnf("Failed to update last execution time: %v", err)
 	}
 
+	// Convert secrets from []string to map[string]string
+	secretsMap := make(map[string]string)
+	if function.Secrets != nil && len(function.Secrets) > 0 {
+		// Get secrets from repository
+		secretsList, err := s.functionRepository.GetSecrets(function.ID)
+		if err != nil {
+			s.logger.Errorf("Failed to retrieve secrets for function %d: %v", function.ID, err)
+			return nil, fmt.Errorf("failed to retrieve function secrets: %w", err)
+		}
+		
+		// Convert to map
+		for _, secretName := range secretsList {
+			// The actual secret value would normally be retrieved from a secure store
+			// For now, we're using the name as the value for demonstration
+			secretsMap[secretName] = secretName // In a real system, get actual value from secure store
+		}
+	}
+
 	// Execute in TEE
-	result, err := s.teeManager.ExecuteFunction(ctx, function, params, function.Secrets)
+	result, err := s.teeManager.ExecuteSecureFunction(ctx, function, params, secretsMap)
 
 	// Update execution record with result
 	endTime := time.Now()

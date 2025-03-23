@@ -15,9 +15,9 @@ import (
 	"github.com/R3E-Network/service_layer/internal/blockchain/mock"
 	"github.com/R3E-Network/service_layer/internal/config"
 	"github.com/R3E-Network/service_layer/internal/repository"
-	"github.com/R3E-Network/service_layer/internal/secrets"
+	"github.com/R3E-Network/service_layer/internal/core/secrets"
 	"github.com/R3E-Network/service_layer/internal/tee"
-	"github.com/R3E-Network/service_layer/pkg/models"
+	"github.com/R3E-Network/service_layer/internal/models"
 )
 
 var (

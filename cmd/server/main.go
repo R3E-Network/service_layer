@@ -24,7 +24,7 @@ func main() {
 	}
 
 	// Initialize logger
-	log := logger.New(cfg.Monitoring.Logging)
+	log := logger.NewDefault("main")
 	log.Info("Starting Neo N3 Service Layer...")
 
 	// Initialize monitoring service

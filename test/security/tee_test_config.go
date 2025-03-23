@@ -88,36 +88,33 @@ func (c *TestTEEConfig) TeardownTEETestEnvironment(t *testing.T) {
 // GetTEEConfig returns a TEE configuration for testing
 func (c *TestTEEConfig) GetTEEConfig() *config.TEEConfig {
 	return &config.TEEConfig{
+		Enabled:  true,
 		Provider: "azure",
 		Azure: config.AzureConfig{
-			Region:         "eastus",
-			VMSize:         "Standard_DC4s_v3",
-			AttestationURL: "https://shared.eastus.attest.azure.net",
-			Runtime: struct {
-				JSMemoryLimit    int `yaml:"js_memory_limit" env:"AZURE_JS_MEMORY_LIMIT,default=128"`
-				ExecutionTimeout int `yaml:"execution_timeout" env:"AZURE_EXECUTION_TIMEOUT,default=30"`
-			}{
+			ClientID:           "test-client-id",
+			ClientSecret:       "test-client-secret",
+			TenantID:           "test-tenant-id",
+			SubscriptionID:     "test-subscription-id",
+			ResourceGroupName:  "test-resource-group",
+			AttestationURL:     "https://shared.eastus.attest.azure.net",
+			ConfidentialLedger: "test-ledger",
+			EnclaveSeal:        "test-seal",
+			Runtime: config.RuntimeConfig{
 				JSMemoryLimit:    128,
 				ExecutionTimeout: 30,
-			},
-			Attestation: struct {
-				URL      string `yaml:"url" env:"AZURE_ATTESTATION_URL"`
-				Provider string `yaml:"provider" env:"AZURE_ATTESTATION_PROVIDER"`
-				Instance string `yaml:"instance" env:"AZURE_ATTESTATION_INSTANCE,default=shared"`
-				Region   string `yaml:"region" env:"AZURE_ATTESTATION_REGION,default=eastus"`
-				Scope    string `yaml:"scope" env:"AZURE_ATTESTATION_SCOPE,default=https://attest.azure.net/.default"`
-			}{
-				URL:      "https://shared.eastus.attest.azure.net",
-				Provider: "shared",
-				Instance: "shared",
-				Region:   "eastus",
-				Scope:    "https://attest.azure.net/.default",
+				MaxConcurrency:   5,
+				MaxCodeSize:      1024,
+				EnableNetworking: false,
+				AllowedHosts:     []string{"api.example.com"},
 			},
 		},
 		Runtime: config.RuntimeConfig{
 			JSMemoryLimit:    128,
 			ExecutionTimeout: 30,
-			MaxCPUTime:       10,
+			MaxConcurrency:   5,
+			MaxCodeSize:      1024,
+			EnableNetworking: false,
+			AllowedHosts:     []string{"api.example.com"},
 		},
 	}
 }

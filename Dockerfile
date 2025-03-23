@@ -1,13 +1,10 @@
 # Stage 1: Build the application
-FROM golang:1.22-alpine AS builder
+FROM golang:1.19-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache git
-
-# Copy go.mod and go.sum first to leverage Docker cache
+# Copy go.mod and go.sum files first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -15,13 +12,13 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o servicelayer ./cmd/servicelayer
 
-# Stage 2: Create a minimal runtime image
-FROM alpine:3.19
+# Stage 2: Create a minimalist runtime image
+FROM alpine:3.17
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk --no-cache add ca-certificates
 
 # Create a non-root user to run the application
 RUN adduser -D -g '' appuser
@@ -31,20 +28,10 @@ USER appuser
 WORKDIR /app
 
 # Copy the binary from the builder stage
-COPY --from=builder /app/server .
+COPY --from=builder /app/servicelayer .
 
-# Copy configuration files
-COPY --from=builder /app/configs ./configs
+# Create config directory
+RUN mkdir -p /app/config
 
-# Create directories for migrations and logs
-COPY --from=builder /app/internal/database/migrations ./internal/database/migrations
-RUN mkdir -p logs
-
-# Expose the port
-EXPOSE 8080
-
-# Set environment variables
-ENV CONFIG_FILE=configs/config.yaml
-
-# Run the application
-CMD ["./server"]
+# Command to run
+ENTRYPOINT ["/app/servicelayer", "-config", "/app/config/config.json"]

@@ -1,7 +1,6 @@
 package security_test
 
 import (
-	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -11,96 +10,33 @@ import (
 	"github.com/R3E-Network/service_layer/internal/config"
 	"github.com/R3E-Network/service_layer/internal/core/auth"
 	"github.com/R3E-Network/service_layer/internal/models"
-	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-// MockUserRepository is a mock implementation of models.UserRepository
-type MockUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockUserRepository) Create(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) GetByID(id int) (*models.User, error) {
-	args := m.Called(id)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByUsername(username string) (*models.User, error) {
-	args := m.Called(username)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
-	args := m.Called(email)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) GetByAPIKey(apiKey string) (*models.User, error) {
-	args := m.Called(apiKey)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.User), args.Error(1)
-}
-
-func (m *MockUserRepository) Update(user *models.User) error {
-	args := m.Called(user)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) Delete(id int) error {
-	args := m.Called(id)
-	return args.Error(0)
-}
-
-func (m *MockUserRepository) List(offset, limit int) ([]*models.User, error) {
-	args := m.Called(offset, limit)
-	return args.Get(0).([]*models.User), args.Error(1)
-}
-
-// Setup creates a new auth service with mock dependencies
-func setupAuthService() (*auth.Service, *MockUserRepository) {
-	// Create logger
-	log := logger.NewLogger("test", "debug")
-
+// setupAuthServiceForSecurityTests creates a new auth service with mock dependencies
+// specifically for security related tests
+func setupAuthServiceForSecurityTests() (*auth.Service, *MockUserRepository) {
+	mockUserRepo := new(MockUserRepository)
+	
 	// Create config with secure settings
 	cfg := &config.Config{
 		Auth: config.AuthConfig{
-			JWTSecret:         "super-secure-jwt-secret-that-is-at-least-32-bytes-long",
-			TokenExpiry:       3600,
+			JWTSecret:         "test-jwt-secret-for-unit-tests-only",
+			TokenExpiry:       900,
 			RefreshTokenExpiry: 86400,
 		},
 	}
-
-	// Create mock user repository
-	mockUserRepo := new(MockUserRepository)
-
+	
 	// Create auth service
-	authService := auth.NewService(cfg, log, mockUserRepo)
-
+	authService := auth.NewService(cfg, nil, mockUserRepo)
 	return authService, mockUserRepo
 }
 
 // TestJWTSecurityAlgorithm verifies that the JWT is using a secure algorithm (HS256)
 func TestJWTSecurityAlgorithm(t *testing.T) {
 	// Setup
-	authService, mockUserRepo := setupAuthService()
+	authService, mockUserRepo := setupAuthServiceForSecurityTests()
 
 	// Create test user
 	testUser := &models.User{
@@ -136,7 +72,7 @@ func TestJWTSecurityAlgorithm(t *testing.T) {
 // TestJWTTokenExpiration verifies that tokens expire correctly
 func TestJWTTokenExpiration(t *testing.T) {
 	// Setup
-	authService, mockUserRepo := setupAuthService()
+	authService, mockUserRepo := setupAuthServiceForSecurityTests()
 
 	// Create test user
 	testUser := &models.User{
@@ -155,19 +91,19 @@ func TestJWTTokenExpiration(t *testing.T) {
 	assert.NotNil(t, tokens)
 
 	// Verify token expiration is set correctly
-	assert.Equal(t, 3600, tokens.ExpiresIn, "Token expiration should match config")
+	assert.Equal(t, 900, tokens.ExpiresIn, "Token expiration should match config")
 
 	// Parse the token to check expiry
 	claims := &auth.Claims{}
 	token, err := jwt.ParseWithClaims(tokens.AccessToken, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte("super-secure-jwt-secret-that-is-at-least-32-bytes-long"), nil
+		return []byte("test-jwt-secret-for-unit-tests-only"), nil
 	})
 	assert.NoError(t, err)
 	assert.True(t, token.Valid)
 
 	// Verify expiry time
 	expiresAt := time.Unix(claims.ExpiresAt, 0)
-	expectedExpiry := time.Now().Add(time.Duration(3600) * time.Second)
+	expectedExpiry := time.Now().Add(time.Duration(900) * time.Second)
 	
 	// Allow for a small time difference (5 seconds) due to test execution
 	assert.WithinDuration(t, expectedExpiry, expiresAt, 5*time.Second)
@@ -176,7 +112,7 @@ func TestJWTTokenExpiration(t *testing.T) {
 // TestJWTTokenRejectionAfterExpiry verifies that expired tokens are rejected
 func TestJWTTokenRejectionAfterExpiry(t *testing.T) {
 	// Setup
-	authService, _ := setupAuthService()
+	authService, _ := setupAuthServiceForSecurityTests()
 
 	// Create an expired token
 	claims := &auth.Claims{
@@ -190,7 +126,7 @@ func TestJWTTokenRejectionAfterExpiry(t *testing.T) {
 	}
 	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte("super-secure-jwt-secret-that-is-at-least-32-bytes-long"))
+	tokenString, err := token.SignedString([]byte("test-jwt-secret-for-unit-tests-only"))
 	assert.NoError(t, err)
 
 	// Attempt to validate the expired token
@@ -202,7 +138,7 @@ func TestJWTTokenRejectionAfterExpiry(t *testing.T) {
 // TestJWTTokenRejectionWithWrongSignature verifies that tokens with invalid signatures are rejected
 func TestJWTTokenRejectionWithWrongSignature(t *testing.T) {
 	// Setup
-	authService, mockUserRepo := setupAuthService()
+	authService, mockUserRepo := setupAuthServiceForSecurityTests()
 
 	// Create test user
 	testUser := &models.User{
@@ -233,7 +169,7 @@ func TestJWTTokenRejectionWithWrongSignature(t *testing.T) {
 // TestAlgorithmConfusionAttack verifies protection against algorithm confusion attacks
 func TestAlgorithmConfusionAttack(t *testing.T) {
 	// Setup
-	authService, _ := setupAuthService()
+	authService, _ := setupAuthServiceForSecurityTests()
 
 	// Create claims
 	claims := &auth.Claims{
@@ -270,7 +206,7 @@ func TestJWTReplayAttack(t *testing.T) {
 // TestRefreshTokenSecure verifies refresh token security
 func TestRefreshTokenSecure(t *testing.T) {
 	// Setup
-	authService, mockUserRepo := setupAuthService()
+	authService, mockUserRepo := setupAuthServiceForSecurityTests()
 
 	// Create test user
 	testUser := &models.User{

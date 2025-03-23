@@ -48,6 +48,9 @@ type Client interface {
 
 	// GetBalance gets a token balance for an address.
 	GetBalance(ctx context.Context, address string, assetID string) (string, error)
+
+	// GetHeight returns the current blockchain height
+	GetHeight() (uint32, error)
 }
 
 // TransactionParams contains parameters for creating a transaction.
@@ -516,4 +519,18 @@ func (c *Client) getAvailableNodes() []NodeConfig {
 	}
 
 	return availableNodes
+}
+
+// GetHeight returns the current blockchain height
+func (c *Client) GetHeight() (uint32, error) {
+	if !c.IsConnected() {
+		return 0, errors.New("not connected to blockchain")
+	}
+
+	blockCount, err := c.rpcClient.GetBlockCount()
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(blockCount.Result - 1), nil
 }

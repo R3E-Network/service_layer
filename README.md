@@ -1,4 +1,4 @@
-# Neo N3 Service Layer
+# Neo N3 Oracle Service Layer
 
 [![Build Status](https://github.com/R3E-Network/service_layer/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/R3E-Network/service_layer/actions/workflows/ci-cd.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/R3E-Network/service_layer)](https://goreportcard.com/report/github.com/R3E-Network/service_layer)
@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/R3E-Network/service_layer/branch/master/graph/badge.svg)](https://codecov.io/gh/R3E-Network/service_layer)
 [![Netlify Status](https://api.netlify.com/api/v1/badges/72340a18-a517-48ba-986e-49bfe9a1d0b3/deploy-status)](https://app.netlify.com/sites/servicelayer/deploys)
 
-A centralized oracle service for the Neo N3 blockchain, providing functions execution in TEE, contract automation, price feeds, and more.
+A centralized oracle service for the Neo N3 blockchain, providing secure and scalable oracle services using Azure Confidential Computing TEE.
 
 ## Features
 
@@ -18,6 +18,7 @@ A centralized oracle service for the Neo N3 blockchain, providing functions exec
 - **Random Number Generation**: Secure random number generation for contracts
 - **Price Feed**: Regular on-chain token price updates
 - **Oracle Service**: Bringing external data to Neo N3 blockchain
+- **GasBank**: Manage gas tokens for users an
 
 ## Architecture
 

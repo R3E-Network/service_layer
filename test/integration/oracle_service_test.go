@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"service_layer/internal/blockchain"
-	"service_layer/internal/config"
-	"service_layer/internal/models"
-	"service_layer/internal/oracle"
-	"service_layer/internal/tee"
-	"service_layer/test/mocks"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/internal/oracle"
+	"github.com/R3E-Network/service_layer/internal/tee"
+	"github.com/R3E-Network/service_layer/test/mocks"
 )
 
 // TestOracleServiceIntegration tests the integration between the Oracle service,
