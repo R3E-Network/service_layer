@@ -17,7 +17,7 @@ type Service struct {
 	config            *config.Config
 	logger            *logger.Logger
 	gasBankRepository models.GasBankRepository
-	blockchainClient  *blockchain.Client
+	blockchainClient  blockchain.BlockchainClient
 }
 
 // NewService creates a new gas bank service
@@ -25,7 +25,7 @@ func NewService(
 	cfg *config.Config,
 	log *logger.Logger,
 	gasBankRepository models.GasBankRepository,
-	blockchainClient *blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 ) *Service {
 	return &Service{
 		config:            cfg,

@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/dop251/goja"
-	"github.com/your-org/neo-oracle/internal/models"
 )
 
 // AdvancedJSRuntime provides enhanced JavaScript runtime with blockchain capabilities

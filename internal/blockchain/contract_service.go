@@ -141,6 +141,7 @@ func (s *ContractService) compileContract(source, compiler string, parameters ma
 
 	// In a real implementation, this would call an actual compiler service
 	// For now, we'll simulate this with mock data
+	s.logger.Debug("Compiling contract with source code length:", len(sourceCode))
 
 	// Simulate bytecode
 	bytecode := []byte("simulated-bytecode")

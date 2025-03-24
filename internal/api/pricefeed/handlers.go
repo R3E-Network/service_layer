@@ -338,7 +338,7 @@ func (h *Handler) GetAllPrices(c *gin.Context) {
 		Pair      string  `json:"pair"`
 		Price     float64 `json:"price"`
 		Timestamp string  `json:"timestamp"`
-		RoundID   int64   `json:"round_id"`
+		RoundID   string  `json:"round_id"`
 	}
 
 	var prices []PriceResponse

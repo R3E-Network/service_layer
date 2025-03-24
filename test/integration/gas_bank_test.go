@@ -14,6 +14,7 @@ import (
 	"github.com/R3E-Network/service_layer/internal/gasbank"
 	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/R3E-Network/service_layer/internal/tee"
+	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/R3E-Network/service_layer/test/mocks"
 )
 
@@ -38,10 +39,9 @@ func TestGasBankIntegration(t *testing.T) {
 func setupGasBankTestConfig() *config.Config {
 	return &config.Config{
 		GasBank: config.GasBankConfig{
-			Address:              "neo-gas-bank-address",
-			MaxWithdrawal:        "1000",
-			DailyWithdrawalLimit: "500",
-			FeePercentage:        2, // 2% fee
+			MinimumGasBalance: 10.0,
+			AutoRefill:        true,
+			RefillAmount:      50.0,
 		},
 	}
 }
@@ -88,12 +88,23 @@ func setupGasBankMockBlockchain(t *testing.T) *mocks.BlockchainClient {
 }
 
 func setupGasBankTEEManager(t *testing.T) *tee.Manager {
-	// In tests, we use a mock TEE environment
+	log := logger.New(logger.LoggingConfig{
+		Level:  "info",
+		Format: "json",
+		Output: "console",
+	})
+	
 	return tee.NewManager(&config.Config{
 		TEE: config.TEEConfig{
-			Enabled: false, // Use simulation mode for tests
+			Provider:          "simulation",
+			EnableAttestation: false,
 		},
-	})
+		Functions: config.FunctionsConfig{
+			MaxMemory:        512,
+			ExecutionTimeout: 30,
+			MaxConcurrency:   10,
+		},
+	}, log)
 }
 
 func setupGasBankService(t *testing.T, cfg *config.Config, blockchainClient blockchain.Client, teeManager *tee.Manager) *gasbank.Service {

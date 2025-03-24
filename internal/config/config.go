@@ -13,17 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config contains all configuration for the service layer
-type Config struct {
-	Server     ServerConfig     `json:"server"`
-	Blockchain BlockchainConfig `json:"blockchain"`
-	TEE        TEEConfig        `json:"tee"`
-	GasBank    GasBankConfig    `json:"gasbank"`
-	PriceFeed  PriceFeedConfig  `json:"pricefeed"`
-	Logging    LoggingConfig    `json:"logging"`
-	Metrics    MetricsConfig    `json:"metrics"`
-}
-
 // ServerConfig contains HTTP server settings
 type ServerConfig struct {
 	Port           int    `json:"port"`
@@ -32,28 +21,55 @@ type ServerConfig struct {
 	TLSKeyPath     string `json:"tlsKeyPath"`
 	EnableTLS      bool   `json:"enableTls"`
 	ReadTimeoutSec int    `json:"readTimeoutSec"`
+	ReadTimeout    time.Duration   `mapstructure:"read_timeout"`
+	WriteTimeout   time.Duration   `mapstructure:"write_timeout"`
+	IdleTimeout    time.Duration   `mapstructure:"idle_timeout"`
+	RateLimit      RateLimitConfig `mapstructure:"rate_limit"`
+	CORS           CORSConfig      `mapstructure:"cors"`
+	Mode           string          `mapstructure:"mode"`
+	Timeout        int             `mapstructure:"timeout"`
 }
 
 // BlockchainConfig contains Neo N3 blockchain settings
 type BlockchainConfig struct {
-	RPCEndpoints     []string `json:"rpcEndpoints"`
-	NetworkMagic     uint32   `json:"networkMagic"`
-	WalletPath       string   `json:"walletPath"`
-	WalletPassword   string   `json:"walletPassword"`
-	AccountAddress   string   `json:"accountAddress"`
-	GasBankContract  string   `json:"gasBankContract"`
-	OracleContract   string   `json:"oracleContract"`
-	PriceFeedTimeout int      `json:"priceFeedTimeout"`
+	Network          string   `json:"network" mapstructure:"network"`
+	RPCEndpoint      string   `json:"rpcEndpoint" mapstructure:"rpc_endpoint"`
+	WSEndpoint       string   `json:"wsEndpoint" mapstructure:"ws_endpoint"`
+	RPCEndpoints     []string `json:"rpcEndpoints" mapstructure:"rpc_endpoints"`
+	NetworkMagic     uint32   `json:"networkMagic" mapstructure:"network_magic"`
+	WalletPath       string   `json:"walletPath" mapstructure:"wallet_path"`
+	WalletPassword   string   `json:"walletPassword" mapstructure:"wallet_password"`
+	AccountAddress   string   `json:"accountAddress" mapstructure:"account_address"`
+	GasBankContract  string   `json:"gasBankContract" mapstructure:"gas_bank_contract"`
+	OracleContract   string   `json:"oracleContract" mapstructure:"oracle_contract"`
+	PriceFeedTimeout int      `json:"priceFeedTimeout" mapstructure:"price_feed_timeout"`
 }
 
-// TEEConfig contains Trusted Execution Environment settings
+// TEEConfig defines the configuration for Trusted Execution Environment
 type TEEConfig struct {
-	Provider            string `json:"provider"` // azure, aws, etc.
-	AzureAttestationURL string `json:"azureAttestationUrl"`
-	EnclaveImageID      string `json:"enclaveImageId"`
-	JSRuntimePath       string `json:"jsRuntimePath"`
-	SecretsStoragePath  string `json:"secretsStoragePath"`
-	MaxMemoryMB         int    `json:"maxMemoryMb"`
+	Provider          string      `mapstructure:"provider"`
+	EnableAttestation bool        `mapstructure:"enable_attestation"`
+	Azure             AzureConfig `mapstructure:"azure"`
+}
+
+// AzureConfig defines the configuration for Azure Confidential Computing
+type AzureConfig struct {
+	ClientID                string       `mapstructure:"client_id"`
+	ClientSecret            string       `mapstructure:"client_secret"`
+	TenantID                string       `mapstructure:"tenant_id"`
+	SubscriptionID          string       `mapstructure:"subscription_id"`
+	ResourceGroup           string       `mapstructure:"resource_group"`
+	AttestationProviderName string       `mapstructure:"attestation_provider_name"`
+	AttestationEndpoint     string       `mapstructure:"attestation_endpoint"`
+	AllowedSGXEnclaves      []string     `mapstructure:"allowed_sgx_enclaves"`
+	Region                  string       `mapstructure:"region"`
+	Runtime                 RuntimeConfig `mapstructure:"runtime"`
+}
+
+// RuntimeConfig contains runtime-specific configuration for TEE
+type RuntimeConfig struct {
+	JSMemoryLimit     int   `mapstructure:"js_memory_limit"`
+	ExecutionTimeout  int   `mapstructure:"execution_timeout"`
 }
 
 // GasBankConfig contains gas management settings
@@ -77,12 +93,16 @@ type LoggingConfig struct {
 	EnableDebugLogs       bool   `json:"enableDebugLogs"`
 	RotationIntervalHours int    `json:"rotationIntervalHours"`
 	MaxLogFiles           int    `json:"maxLogFiles"`
+	Level                 string `mapstructure:"level"`
+	Format                string `mapstructure:"format"`
+	Output                string `mapstructure:"output"`
+	FilePrefix            string `mapstructure:"file_prefix"`
 }
 
 // MetricsConfig contains monitoring settings
 type MetricsConfig struct {
 	Enabled       bool   `json:"enabled"`
-	ListenAddress string `json:"listenAddress"`
+	ListenAddress string `mapstructure:"listenAddress"`
 }
 
 // Config represents the application configuration
@@ -103,19 +123,9 @@ type Config struct {
 	Services    ServicesConfig   `mapstructure:"services"`
 	Neo         NeoConfig        `mapstructure:"neo"`
 	Features    FeaturesConfig   `mapstructure:"features"`
-}
-
-// ServerConfig represents the server configuration
-type ServerConfig struct {
-	Host         string          `mapstructure:"host"`
-	Port         int             `mapstructure:"port"`
-	ReadTimeout  time.Duration   `mapstructure:"read_timeout"`
-	WriteTimeout time.Duration   `mapstructure:"write_timeout"`
-	IdleTimeout  time.Duration   `mapstructure:"idle_timeout"`
-	RateLimit    RateLimitConfig `mapstructure:"rate_limit"`
-	CORS         CORSConfig      `mapstructure:"cors"`
-	Mode         string          `mapstructure:"mode"`
-	Timeout      int             `mapstructure:"timeout"`
+	Logging     LoggingConfig    `mapstructure:"logging"`
+	Metrics     MetricsConfig    `mapstructure:"metrics"`
+	Health      HealthConfig     `mapstructure:"health"`
 }
 
 // DatabaseConfig represents the database configuration
@@ -173,14 +183,6 @@ type PrometheusConfig struct {
 	Enabled bool   `mapstructure:"enabled"`
 	Port    int    `mapstructure:"port"`
 	Path    string `mapstructure:"path"`
-}
-
-// LoggingConfig contains logging configuration
-type LoggingConfig struct {
-	Level      string `mapstructure:"level"`
-	Format     string `mapstructure:"format"`
-	Output     string `mapstructure:"output"`
-	FilePrefix string `mapstructure:"file_prefix"`
 }
 
 // RateLimitConfig represents the rate limiting configuration
@@ -280,21 +282,17 @@ type SecretsApi struct {
 
 // NeoConfig contains Neo N3 blockchain configuration
 type NeoConfig struct {
-	RpcUrl             string       `mapstructure:"rpc_url"`
-	RPCURL             string       `mapstructure:"rpc_url"` // Alias for RpcUrl for backward compatibility
-	NetworkFee         string       `mapstructure:"network_fee"`
-	SystemFee          string       `mapstructure:"system_fee"`
-	GasToken           string       `mapstructure:"gas_token"`
-	ContractAddress    string       `mapstructure:"contract_address"`
-	PrivateKey         string       `mapstructure:"private_key"`
-	Network            string       `mapstructure:"network"`
-	GasLimit           int          `mapstructure:"gas_limit"`
-	GasPrice           int          `mapstructure:"gas_price"`
-	Nodes              []NodeConfig `mapstructure:"nodes"`
-	WalletPath         string       `mapstructure:"wallet_path"`
-	URLs               []string     `mapstructure:"urls"`
-	Confirmations      int          `mapstructure:"confirmations"`
-	ConfirmationsInt64 int64        `mapstructure:"confirmations"` // Int64 version for compatibility
+	NetworkID        int     `mapstructure:"network_id"`
+	ChainID          int     `mapstructure:"chain_id"`
+	Network          string  `mapstructure:"network"`
+	RPCEndpoint      string  `mapstructure:"rpc_endpoint"`
+	WSEndpoint       string  `mapstructure:"ws_endpoint"`
+	GasBankContract  string  `mapstructure:"gas_bank_contract"`
+	OracleContract   string  `mapstructure:"oracle_contract"`
+	PriceFeedTimeout int     `mapstructure:"price_feed_timeout"`
+	Confirmations    int64   `mapstructure:"confirmations"`
+	GasLimit         int64   `mapstructure:"gas_limit"`
+	GasPrice         int64   `mapstructure:"gas_price"`
 }
 
 // NodeConfig contains configuration for a blockchain node
@@ -341,13 +339,6 @@ func (n NodeConfig) ToBlockchainNodeConfig() interface{} {
 
 // SetupDefaultValues initializes configuration with default values when loading
 func (c *NeoConfig) SetupDefaultValues() {
-	// Convert Confirmations to ConfirmationsInt64
-	c.ConfirmationsInt64 = int64(c.Confirmations)
-
-	// Convert URLs to Nodes if needed
-	if len(c.Nodes) == 0 && len(c.URLs) > 0 {
-		c.Nodes = StringsToNodeConfigs(c.URLs)
-	}
 }
 
 // FeaturesConfig contains feature flag configuration
@@ -370,6 +361,13 @@ type FeaturesConfig struct {
 	Automation            bool `mapstructure:"enable_automation"` // Alias for EnableAutomation
 	EnableRandomGenerator bool `mapstructure:"enable_random_generator"`
 	RandomGenerator       bool `mapstructure:"enable_random_generator"` // Alias for EnableRandomGenerator
+}
+
+// HealthConfig represents health monitoring configuration
+type HealthConfig struct {
+	CheckIntervalSec int `mapstructure:"check_interval_sec"`
+	MaxRetries       int `mapstructure:"max_retries"`
+	RetryDelaySec    int `mapstructure:"retry_delay_sec"`
 }
 
 // New creates a new config instance with default values
@@ -406,9 +404,17 @@ func New() *Config {
 			ConnMaxLifetime: 300, // 5 minutes
 		},
 		Blockchain: BlockchainConfig{
-			Network:     "testnet",
-			RPCEndpoint: "http://localhost:10332",
-			WSEndpoint:  "ws://localhost:10334",
+			Network:          "",
+			RPCEndpoint:      "",
+			WSEndpoint:       "",
+			RPCEndpoints:     []string{"http://localhost:10332"},
+			NetworkMagic:     860833102, // Neo N3 TestNet
+			WalletPath:       "./wallet.json",
+			WalletPassword:   "",
+			AccountAddress:   "",
+			GasBankContract:  "0x1234567890123456789012345678901234567890",
+			OracleContract:   "0x0987654321098765432109876543210987654321",
+			PriceFeedTimeout: 60,
 		},
 		Functions: FunctionsConfig{
 			MaxMemory:        128, // MB
@@ -420,47 +426,36 @@ func New() *Config {
 			MaxDataSources: 100,
 		},
 		PriceFeed: PriceFeedConfig{
-			UpdateInterval: 60, // seconds
-			Sources: map[string]string{
-				"default": "https://api.coingecko.com/api/v3",
-			},
+			UpdateIntervalSec: 60, // seconds
+			DataSources:       []string{"coinmarketcap", "coingecko"},
+			SupportedTokens:   []string{"NEO", "GAS", "ETH", "BTC"},
 		},
 		Automation: AutomationConfig{
 			MaxTriggers: 100,
 			MinInterval: 5, // seconds
 		},
 		GasBank: GasBankConfig{
-			MaxWithdrawal: "10000",
-			FeePercentage: 1,
+			MinimumGasBalance: 10.0,
+			AutoRefill:        true,
+			RefillAmount:      50.0,
 		},
 		TEE: TEEConfig{
-			Enabled:  true,
-			Provider: "azure",
+			Provider:            "simulation",
+			EnableAttestation:   false,
 			Azure: AzureConfig{
-				ClientID:           "",
-				ClientSecret:       "",
-				TenantID:           "",
-				SubscriptionID:     "",
-				ResourceGroupName:  "",
-				AttestationURL:     "",
-				ConfidentialLedger: "",
-				EnclaveSeal:        "",
+				ClientID:                "",
+				ClientSecret:            "",
+				TenantID:                "",
+				SubscriptionID:          "",
+				ResourceGroup:           "",
+				AttestationProviderName: "",
+				AttestationEndpoint:     "",
+				AllowedSGXEnclaves:      []string{},
+				Region:                  "",
 				Runtime: RuntimeConfig{
-					JSMemoryLimit:    128, // MB
-					ExecutionTimeout: 30,  // seconds
-					MaxConcurrency:   10,
-					MaxCodeSize:      1024, // KB
-					EnableNetworking: false,
-					AllowedHosts:     []string{},
+					JSMemoryLimit:     0,
+					ExecutionTimeout:  0,
 				},
-			},
-			Runtime: RuntimeConfig{
-				JSMemoryLimit:    128, // MB
-				ExecutionTimeout: 30,  // seconds
-				MaxConcurrency:   10,
-				MaxCodeSize:      1024, // KB
-				EnableNetworking: false,
-				AllowedHosts:     []string{},
 			},
 		},
 		Monitoring: MonitoringConfig{
@@ -518,19 +513,17 @@ func New() *Config {
 			},
 		},
 		Neo: NeoConfig{
-			RpcUrl:          "",
-			NetworkFee:      "",
-			SystemFee:       "",
-			GasToken:        "",
-			ContractAddress: "",
-			PrivateKey:      "",
-			Network:         "",
-			GasLimit:        0,
-			GasPrice:        0,
-			Nodes:           []NodeConfig{},
-			WalletPath:      "",
-			URLs:            []string{},
-			Confirmations:   0,
+			NetworkID:        1, // MainNet
+			ChainID:          1, // MainNet
+			Network:          "",
+			RPCEndpoint:      "http://localhost:10332",
+			WSEndpoint:       "ws://localhost:10332/ws", 
+			GasBankContract:  "0x1234567890123456789012345678901234567890",
+			OracleContract:   "0x0987654321098765432109876543210987654321",
+			PriceFeedTimeout: 60,
+			Confirmations:    1,
+			GasLimit:         0,
+			GasPrice:         0,
 		},
 		Features: FeaturesConfig{
 			EnableGasBank:         false,
@@ -542,6 +535,26 @@ func New() *Config {
 			EnableTEE:             false,
 			EnableAutomation:      false,
 			EnableRandomGenerator: false,
+		},
+		Logging: LoggingConfig{
+			EnableFileLogging:     true,
+			LogFilePath:           "./logs/neo-oracle.log",
+			EnableDebugLogs:       false,
+			RotationIntervalHours: 24,
+			MaxLogFiles:           7,
+			Level:                "info",
+			Format:               "json",
+			Output:               "file",
+			FilePrefix:           "service-layer",
+		},
+		Metrics: MetricsConfig{
+			Enabled:       true,
+			ListenAddress: ":9090",
+		},
+		Health: HealthConfig{
+			CheckIntervalSec: 10,
+			MaxRetries:       3,
+			RetryDelaySec:    5,
 		},
 	}
 }
@@ -639,20 +652,61 @@ func LoadConfig(configPath string) (*Config, error) {
 // DefaultConfig creates a default configuration
 func DefaultConfig() *Config {
 	return &Config{
+		Environment: "development",
 		Server: ServerConfig{
-			Port:           8080,
-			Host:           "0.0.0.0",
-			ReadTimeoutSec: 30,
+			Host:         "0.0.0.0",
+			Port:         8000,
+			ReadTimeout:  10 * time.Second,
+			WriteTimeout: 10 * time.Second,
+			IdleTimeout:  30 * time.Second,
+			RateLimit: RateLimitConfig{
+				Enabled:        true,
+				RequestsPerIP:  100,
+				RequestsPerKey: 1000,
+				BurstIP:        5,
+				BurstKey:       50,
+				TimeWindowSec:  60,
+			},
+			CORS: CORSConfig{
+				AllowedOrigins: []string{"*"},
+				AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+				AllowedHeaders: []string{"Content-Type", "Authorization"},
+				MaxAge:         86400,
+			},
+			Mode:    "development",
+			Timeout: 30,
 		},
 		Blockchain: BlockchainConfig{
+			Network:          "",
+			RPCEndpoint:      "",
+			WSEndpoint:       "",
 			RPCEndpoints:     []string{"http://localhost:10332"},
 			NetworkMagic:     860833102, // Neo N3 TestNet
+			WalletPath:       "./wallet.json",
+			WalletPassword:   "",
+			AccountAddress:   "",
+			GasBankContract:  "0x1234567890123456789012345678901234567890",
+			OracleContract:   "0x0987654321098765432109876543210987654321",
 			PriceFeedTimeout: 60,
 		},
 		TEE: TEEConfig{
-			Provider:      "simulation",
-			MaxMemoryMB:   512,
-			JSRuntimePath: "./jsruntime",
+			Provider:            "simulation",
+			EnableAttestation:   false,
+			Azure: AzureConfig{
+				ClientID:                "",
+				ClientSecret:            "",
+				TenantID:                "",
+				SubscriptionID:          "",
+				ResourceGroup:           "",
+				AttestationProviderName: "",
+				AttestationEndpoint:     "",
+				AllowedSGXEnclaves:      []string{},
+				Region:                  "",
+				Runtime: RuntimeConfig{
+					JSMemoryLimit:     0,
+					ExecutionTimeout:  0,
+				},
+			},
 		},
 		GasBank: GasBankConfig{
 			MinimumGasBalance: 10.0,
@@ -670,10 +724,19 @@ func DefaultConfig() *Config {
 			EnableDebugLogs:       false,
 			RotationIntervalHours: 24,
 			MaxLogFiles:           7,
+			Level:                "info",
+			Format:               "json",
+			Output:               "file",
+			FilePrefix:           "service-layer",
 		},
 		Metrics: MetricsConfig{
 			Enabled:       true,
 			ListenAddress: ":9090",
+		},
+		Health: HealthConfig{
+			CheckIntervalSec: 10,
+			MaxRetries:       3,
+			RetryDelaySec:    5,
 		},
 	}
 }

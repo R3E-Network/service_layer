@@ -88,34 +88,12 @@ func (c *TestTEEConfig) TeardownTEETestEnvironment(t *testing.T) {
 // GetTEEConfig returns a TEE configuration for testing
 func (c *TestTEEConfig) GetTEEConfig() *config.TEEConfig {
 	return &config.TEEConfig{
-		Enabled:  true,
-		Provider: "azure",
-		Azure: config.AzureConfig{
-			ClientID:           "test-client-id",
-			ClientSecret:       "test-client-secret",
-			TenantID:           "test-tenant-id",
-			SubscriptionID:     "test-subscription-id",
-			ResourceGroupName:  "test-resource-group",
-			AttestationURL:     "https://shared.eastus.attest.azure.net",
-			ConfidentialLedger: "test-ledger",
-			EnclaveSeal:        "test-seal",
-			Runtime: config.RuntimeConfig{
-				JSMemoryLimit:    128,
-				ExecutionTimeout: 30,
-				MaxConcurrency:   5,
-				MaxCodeSize:      1024,
-				EnableNetworking: false,
-				AllowedHosts:     []string{"api.example.com"},
-			},
-		},
-		Runtime: config.RuntimeConfig{
-			JSMemoryLimit:    128,
-			ExecutionTimeout: 30,
-			MaxConcurrency:   5,
-			MaxCodeSize:      1024,
-			EnableNetworking: false,
-			AllowedHosts:     []string{"api.example.com"},
-		},
+		Provider:            "azure",
+		AzureAttestationURL: "https://shared.eastus.attest.azure.net",
+		EnclaveImageID:      "test-enclave-image-id",
+		JSRuntimePath:       "/usr/local/lib/js-runtime",
+		SecretsStoragePath:  "/tmp/secrets",
+		MaxMemoryMB:         128,
 	}
 }
 

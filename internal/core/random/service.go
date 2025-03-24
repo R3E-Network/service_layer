@@ -23,7 +23,7 @@ type Service struct {
 	config           *config.Config
 	logger           *logger.Logger
 	randomRepository models.RandomRepository
-	blockchainClient *blockchain.Client
+	blockchainClient blockchain.BlockchainClient
 	teeManager       *tee.Manager
 
 	// For processing requests
@@ -37,7 +37,7 @@ func NewService(
 	cfg *config.Config,
 	log *logger.Logger,
 	randomRepository models.RandomRepository,
-	blockchainClient *blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 	teeManager *tee.Manager,
 ) *Service {
 	return &Service{

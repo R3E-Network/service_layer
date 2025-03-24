@@ -154,13 +154,14 @@ func (s *TransactionService) submitTransaction(ctx context.Context, tx *models.T
 			return fmt.Errorf("failed to unmarshal deployment data: %w", err)
 		}
 
-		hash, err = s.client.DeployContract(ctx, data.NEF, data.Manifest, data.Signers, privateKey)
+		contractHash, err := s.client.DeployContract(ctx, data.NEF, json.RawMessage(data.Manifest.([]byte)))
 		if err != nil {
 			// Update transaction as failed
 			errMsg := err.Error()
 			s.updateTransactionAsFailed(ctx, tx.ID, nil, nil, nil, errMsg)
 			return fmt.Errorf("failed to deploy contract: %w", err)
 		}
+		hash = contractHash
 	case models.TransactionTypeTransfer:
 		var data models.TransferData
 		if err := json.Unmarshal(tx.Data, &data); err != nil {
@@ -380,8 +381,8 @@ func (s *TransactionService) loadPendingTransactions(ctx context.Context) error 
 
 	// Add transactions to pending map
 	for _, tx := range transactions {
-		if tx.Hash != nil && *tx.Hash != "" {
-			s.pending[*tx.Hash] = tx
+		if tx.Hash != "" {
+			s.pending[tx.Hash] = tx
 		}
 	}
 

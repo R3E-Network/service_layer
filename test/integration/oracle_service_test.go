@@ -16,6 +16,7 @@ import (
 	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/R3E-Network/service_layer/internal/oracle"
 	"github.com/R3E-Network/service_layer/internal/tee"
+	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/R3E-Network/service_layer/test/mocks"
 )
 
@@ -42,8 +43,16 @@ func setupTestConfig() *config.Config {
 			MaxDataSources: 10,
 		},
 		Blockchain: config.BlockchainConfig{
-			Network:     "private",
-			RPCEndpoint: "http://localhost:10332",
+			Network:          "private",
+			RPCEndpoint:      "http://localhost:10332",
+			RPCEndpoints:     []string{"http://localhost:10332"},
+			NetworkMagic:     860833102,
+			WalletPath:       "./test-wallet.json",
+			WalletPassword:   "test",
+			AccountAddress:   "NTestAddress",
+			GasBankContract:  "0xTestContract",
+			OracleContract:   "0xTestOracleContract",
+			PriceFeedTimeout: 30,
 		},
 	}
 }
@@ -65,12 +74,23 @@ func setupMockBlockchain(t *testing.T) *mocks.BlockchainClient {
 }
 
 func setupTEEManager(t *testing.T) *tee.Manager {
-	// In tests, we use a mock TEE environment
+	log := logger.New(logger.LoggingConfig{
+		Level:  "info",
+		Format: "json",
+		Output: "console",
+	})
+	
 	return tee.NewManager(&config.Config{
 		TEE: config.TEEConfig{
-			Enabled: false, // Use simulation mode for tests
+			Provider:          "simulation",
+			EnableAttestation: false,
 		},
-	})
+		Functions: config.FunctionsConfig{
+			MaxMemory:        512,
+			ExecutionTimeout: 30,
+			MaxConcurrency:   10,
+		},
+	}, log)
 }
 
 func setupOracleService(t *testing.T, cfg *config.Config, blockchainClient blockchain.Client, teeManager *tee.Manager) *oracle.Service {

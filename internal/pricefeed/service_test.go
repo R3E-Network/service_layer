@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/stretchr/testify/assert"
-	"github.com/your-org/neo-oracle/internal/config"
-	"github.com/your-org/neo-oracle/internal/models"
 )
 
 // Mock blockchain client for testing

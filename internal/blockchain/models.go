@@ -57,8 +57,8 @@ type TransferResult struct {
 	Amount        string `json:"amount"`
 }
 
-// Client defines the interface for blockchain operations
-type Client interface {
+// NeoBlockchainClient defines the interface for Neo N3 blockchain operations
+type NeoBlockchainClient interface {
 	// Contract operations
 	InvokeContractFunction(scriptHash string, method string, args []interface{}) (*InvokeResult, error)
 	GetContractStorage(scriptHash string, key string) (string, error)

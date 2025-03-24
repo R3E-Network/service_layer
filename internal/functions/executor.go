@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/your-org/neo-oracle/internal/models"
-	"github.com/your-org/neo-oracle/internal/tee"
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/internal/tee"
 )
 
 // Executor manages JavaScript function execution

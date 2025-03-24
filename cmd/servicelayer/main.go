@@ -7,8 +7,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/your-org/neo-oracle/internal/config"
-	"github.com/your-org/neo-oracle/internal/service"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/internal/gasbank"
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/internal/pricefeed"
+	"github.com/R3E-Network/service_layer/internal/service"
+	"github.com/R3E-Network/service_layer/internal/tee"
 )
 
 func main() {
@@ -39,10 +44,31 @@ func main() {
 		log.Fatalf("Failed to create service layer: %v", err)
 	}
 
-	// Register all services
-	if err := serviceLayer.RegisterServices(); err != nil {
-		log.Fatalf("Failed to register services: %v", err)
+	// Get references to shared components
+	bcClient := serviceLayer.GetBlockchainClient()
+	teeManager := serviceLayer.GetTEEManager()
+
+	// Initialize repository instances (in a real implementation, these would connect to a database)
+	priceFeedRepo := &models.MockPriceFeedRepository{}
+	gasBankRepo := &models.MockGasBankRepository{}
+
+	// Create and register services
+	
+	// PriceFeed Service
+	priceFeedService, err := pricefeed.NewService(cfg, priceFeedRepo, bcClient, teeManager)
+	if err != nil {
+		log.Fatalf("Failed to create price feed service: %v", err)
 	}
+	priceFeedServiceImpl := pricefeed.NewServiceImpl(priceFeedService, cfg)
+	serviceLayer.RegisterService(priceFeedServiceImpl)
+	
+	// GasBank Service
+	gasBankService, err := gasbank.NewService(cfg, gasBankRepo, bcClient, teeManager)
+	if err != nil {
+		log.Fatalf("Failed to create gas bank service: %v", err)
+	}
+	gasBankServiceImpl := gasbank.NewServiceImpl(gasBankService, cfg)
+	serviceLayer.RegisterService(gasBankServiceImpl)
 
 	// Register signal handlers for graceful shutdown
 	sigs := make(chan os.Signal, 1)
@@ -51,18 +77,16 @@ func main() {
 		sig := <-sigs
 		log.Printf("Received signal %v, shutting down...", sig)
 		if err := serviceLayer.Stop(); err != nil {
-			log.Printf("Error during shutdown: %v", err)
+			log.Printf("Error stopping service layer: %v", err)
 		}
 		os.Exit(0)
 	}()
 
-	// Start the service
+	// Start the service layer
 	if err := serviceLayer.Start(); err != nil {
 		log.Fatalf("Failed to start service layer: %v", err)
 	}
 
-	log.Println("Neo N3 Oracle Service Layer started successfully")
-
-	// Block forever (until signal)
+	// Block forever (the signal handler will exit the program)
 	select {}
 }

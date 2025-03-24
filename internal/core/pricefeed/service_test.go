@@ -1,17 +1,16 @@
 package pricefeed
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/R3E-Network/service_layer/internal/blockchain"
-	"github.com/R3E-Network/service_layer/internal/config"
 	"github.com/R3E-Network/service_layer/internal/models"
-	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,118 +19,165 @@ type MockPriceFeedRepository struct {
 	mock.Mock
 }
 
-func (m *MockPriceFeedRepository) CreatePriceFeed(feed *models.PriceFeed) (*models.PriceFeed, error) {
-	args := m.Called(feed)
+func (m *MockPriceFeedRepository) CreatePriceFeed(ctx interface{}, feed *models.PriceFeed) (*models.PriceFeed, error) {
+	args := m.Called(ctx, feed)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceFeed), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetPriceFeedByID(id int) (*models.PriceFeed, error) {
-	args := m.Called(id)
+func (m *MockPriceFeedRepository) GetPriceFeedByID(ctx interface{}, id string) (*models.PriceFeed, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceFeed), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetPriceFeedByPair(pair string) (*models.PriceFeed, error) {
-	args := m.Called(pair)
+func (m *MockPriceFeedRepository) GetPriceFeedByPair(ctx interface{}, pair string) (*models.PriceFeed, error) {
+	args := m.Called(ctx, pair)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceFeed), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) ListPriceFeeds() ([]*models.PriceFeed, error) {
-	args := m.Called()
+func (m *MockPriceFeedRepository) GetPriceFeed(ctx interface{}, id string) (*models.PriceFeed, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PriceFeed), args.Error(1)
+}
+
+func (m *MockPriceFeedRepository) ListPriceFeeds(ctx interface{}) ([]*models.PriceFeed, error) {
+	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*models.PriceFeed), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) UpdatePriceFeed(feed *models.PriceFeed) (*models.PriceFeed, error) {
-	args := m.Called(feed)
+func (m *MockPriceFeedRepository) UpdatePriceFeed(ctx interface{}, feed *models.PriceFeed) (*models.PriceFeed, error) {
+	args := m.Called(ctx, feed)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceFeed), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) DeletePriceFeed(id int) error {
-	args := m.Called(id)
+func (m *MockPriceFeedRepository) DeletePriceFeed(ctx interface{}, id string) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
 }
 
-func (m *MockPriceFeedRepository) CreatePriceData(data *models.PriceData) (*models.PriceData, error) {
-	args := m.Called(data)
+func (m *MockPriceFeedRepository) CreatePriceData(ctx interface{}, data *models.PriceData) (*models.PriceData, error) {
+	args := m.Called(ctx, data)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceData), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetLatestPriceData(priceFeedID int) (*models.PriceData, error) {
-	args := m.Called(priceFeedID)
+func (m *MockPriceFeedRepository) GetLatestPriceData(ctx interface{}, priceFeedID string) (*models.PriceData, error) {
+	args := m.Called(ctx, priceFeedID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceData), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetPriceDataHistory(priceFeedID int, limit int, offset int) ([]*models.PriceData, error) {
-	args := m.Called(priceFeedID, limit, offset)
+func (m *MockPriceFeedRepository) GetPriceDataHistory(ctx interface{}, priceFeedID string, limit int, offset int) ([]*models.PriceData, error) {
+	args := m.Called(ctx, priceFeedID, limit, offset)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*models.PriceData), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) CreatePriceSource(source *models.PriceSource) (*models.PriceSource, error) {
-	args := m.Called(source)
+func (m *MockPriceFeedRepository) CreatePriceSource(ctx interface{}, source *models.PriceSource) (*models.PriceSource, error) {
+	args := m.Called(ctx, source)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceSource), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetPriceSourceByID(id int) (*models.PriceSource, error) {
-	args := m.Called(id)
+func (m *MockPriceFeedRepository) GetPriceSourceByID(ctx interface{}, id int) (*models.PriceSource, error) {
+	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceSource), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) GetPriceSourceByName(name string) (*models.PriceSource, error) {
-	args := m.Called(name)
+func (m *MockPriceFeedRepository) GetPriceSourceByName(ctx interface{}, name string) (*models.PriceSource, error) {
+	args := m.Called(ctx, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceSource), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) ListPriceSources() ([]*models.PriceSource, error) {
-	args := m.Called()
+func (m *MockPriceFeedRepository) ListPriceSources(ctx interface{}) ([]*models.PriceSource, error) {
+	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*models.PriceSource), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) UpdatePriceSource(source *models.PriceSource) (*models.PriceSource, error) {
-	args := m.Called(source)
+func (m *MockPriceFeedRepository) UpdatePriceSource(ctx interface{}, source *models.PriceSource) (*models.PriceSource, error) {
+	args := m.Called(ctx, source)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*models.PriceSource), args.Error(1)
 }
 
-func (m *MockPriceFeedRepository) DeletePriceSource(id int) error {
-	args := m.Called(id)
+func (m *MockPriceFeedRepository) DeletePriceSource(ctx interface{}, id int) error {
+	args := m.Called(ctx, id)
 	return args.Error(0)
+}
+
+func (m *MockPriceFeedRepository) GetPriceFeedBySymbol(ctx interface{}, symbol string) (*models.PriceFeed, error) {
+	args := m.Called(ctx, symbol)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PriceFeed), args.Error(1)
+}
+
+func (m *MockPriceFeedRepository) AddPriceSource(ctx interface{}, priceFeedID string, source *models.PriceSource) (*models.PriceSource, error) {
+	args := m.Called(ctx, priceFeedID, source)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PriceSource), args.Error(1)
+}
+
+func (m *MockPriceFeedRepository) RemovePriceSource(ctx interface{}, priceFeedID string, sourceID string) error {
+	args := m.Called(ctx, priceFeedID, sourceID)
+	return args.Error(0)
+}
+
+func (m *MockPriceFeedRepository) UpdateLastPrice(ctx interface{}, id string, price float64, txHash string) error {
+	args := m.Called(ctx, id, price, txHash)
+	return args.Error(0)
+}
+
+func (m *MockPriceFeedRepository) RecordPriceUpdate(ctx interface{}, id string, price float64, txID string) error {
+	args := m.Called(ctx, id, price, txID)
+	return args.Error(0)
+}
+
+func (m *MockPriceFeedRepository) GetPriceHistory(ctx interface{}, id string, limit int) ([]*models.PriceUpdate, error) {
+	args := m.Called(ctx, id, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.PriceUpdate), args.Error(1)
 }
 
 // Mock PriceFetcherFactory
@@ -152,7 +198,7 @@ type MockPriceFetcher struct {
 	mock.Mock
 }
 
-func (m *MockPriceFetcher) FetchPrice(ctx context.Context, baseToken, quoteToken string) (float64, error) {
+func (m *MockPriceFetcher) FetchPrice(ctx interface{}, baseToken, quoteToken string) (float64, error) {
 	args := m.Called(ctx, baseToken, quoteToken)
 	return args.Get(0).(float64), args.Error(1)
 }
@@ -172,8 +218,8 @@ type MockGasBankService struct {
 	mock.Mock
 }
 
-func (m *MockGasBankService) AllocateGas(userID int, operation string, estimatedGas int64) (int64, error) {
-	args := m.Called(userID, operation, estimatedGas)
+func (m *MockGasBankService) AllocateGas(ctx interface{}, userID int, operation string, estimatedGas int64) (int64, error) {
+	args := m.Called(ctx, userID, operation, estimatedGas)
 	return args.Get(0).(int64), args.Error(1)
 }
 
@@ -186,7 +232,7 @@ type MockTEEManager struct {
 func setupTestService() (*PriceFeedService, *MockPriceFeedRepository, *MockPriceFetcherFactory, *MockPriceAggregator, *MockGasBankService, *MockTEEManager) {
 	cfg := &config.Config{
 		Services: config.ServicesConfig{
-			PriceFeed: config.PriceFeedConfig{
+			PriceFeed: config.PriceFeedApi{
 				NumWorkers: 1,
 			},
 		},
@@ -201,7 +247,8 @@ func setupTestService() (*PriceFeedService, *MockPriceFeedRepository, *MockPrice
 
 	mockFetcherFactory := new(MockPriceFetcherFactory)
 	mockAggregator := new(MockPriceAggregator)
-
+	
+	// Set mock implementations directly in the service
 	service.fetcherFactory = mockFetcherFactory
 	service.aggregator = mockAggregator
 
@@ -214,10 +261,10 @@ func TestCreatePriceFeed(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByPair", "BTC/USD").Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetPriceFeedByPair", mock.Anything, "BTC/USD").Return(nil, errors.New("not found")).Once()
 
 		expectedFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -229,7 +276,7 @@ func TestCreatePriceFeed(t *testing.T) {
 			CreatedAt:          time.Now(),
 			UpdatedAt:          time.Now(),
 		}
-		mockRepo.On("CreatePriceFeed", mock.AnythingOfType("*models.PriceFeed")).Return(expectedFeed, nil).Once()
+		mockRepo.On("CreatePriceFeed", mock.Anything, mock.AnythingOfType("*models.PriceFeed")).Return(expectedFeed, nil).Once()
 
 		// Call service
 		feed, err := service.CreatePriceFeed("BTC", "USD", "1h", 0.5, "24h", "0x1234")
@@ -243,7 +290,7 @@ func TestCreatePriceFeed(t *testing.T) {
 	t.Run("PairAlreadyExists", func(t *testing.T) {
 		// Setup mock
 		existingFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -253,7 +300,7 @@ func TestCreatePriceFeed(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByPair", "BTC/USD").Return(existingFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByPair", mock.Anything, "BTC/USD").Return(existingFeed, nil).Once()
 
 		// Call service
 		feed, err := service.CreatePriceFeed("BTC", "USD", "1h", 0.5, "24h", "0x1234")
@@ -281,8 +328,8 @@ func TestCreatePriceFeed(t *testing.T) {
 
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByPair", "BTC/USD").Return(nil, errors.New("not found")).Once()
-		mockRepo.On("CreatePriceFeed", mock.AnythingOfType("*models.PriceFeed")).Return(nil, errors.New("database error")).Once()
+		mockRepo.On("GetPriceFeedByPair", mock.Anything, "BTC/USD").Return(nil, errors.New("not found")).Once()
+		mockRepo.On("CreatePriceFeed", mock.Anything, mock.AnythingOfType("*models.PriceFeed")).Return(nil, errors.New("database error")).Once()
 
 		// Call service
 		feed, err := service.CreatePriceFeed("BTC", "USD", "1h", 0.5, "24h", "0x1234")
@@ -302,7 +349,7 @@ func TestUpdatePriceFeed(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
 		existingFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -312,10 +359,10 @@ func TestUpdatePriceFeed(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByID", 1).Return(existingFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "1").Return(existingFeed, nil).Once()
 
 		updatedFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -325,10 +372,10 @@ func TestUpdatePriceFeed(t *testing.T) {
 			ContractAddress:    "0x5678",
 			Active:             false,
 		}
-		mockRepo.On("UpdatePriceFeed", mock.AnythingOfType("*models.PriceFeed")).Return(updatedFeed, nil).Once()
+		mockRepo.On("UpdatePriceFeed", mock.Anything, mock.AnythingOfType("*models.PriceFeed")).Return(updatedFeed, nil).Once()
 
 		// Call service
-		feed, err := service.UpdatePriceFeed(1, "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
+		feed, err := service.UpdatePriceFeed("1", "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
 
 		// Assertions
 		require.NoError(t, err)
@@ -338,10 +385,10 @@ func TestUpdatePriceFeed(t *testing.T) {
 
 	t.Run("FeedNotFound", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByID", 999).Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "999").Return(nil, errors.New("not found")).Once()
 
 		// Call service
-		feed, err := service.UpdatePriceFeed(999, "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
+		feed, err := service.UpdatePriceFeed("999", "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
 
 		// Assertions
 		assert.Error(t, err)
@@ -352,7 +399,7 @@ func TestUpdatePriceFeed(t *testing.T) {
 
 	t.Run("ValidationError", func(t *testing.T) {
 		// Call service with invalid input
-		feed, err := service.UpdatePriceFeed(1, "", "USD", "2h", 0.8, "48h", "0x5678", false)
+		feed, err := service.UpdatePriceFeed("1", "", "USD", "2h", 0.8, "48h", "0x5678", false)
 
 		// Assertions
 		assert.Error(t, err)
@@ -367,7 +414,7 @@ func TestUpdatePriceFeed(t *testing.T) {
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mock
 		existingFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -377,11 +424,11 @@ func TestUpdatePriceFeed(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByID", 1).Return(existingFeed, nil).Once()
-		mockRepo.On("UpdatePriceFeed", mock.AnythingOfType("*models.PriceFeed")).Return(nil, errors.New("database error")).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "1").Return(existingFeed, nil).Once()
+		mockRepo.On("UpdatePriceFeed", mock.Anything, mock.AnythingOfType("*models.PriceFeed")).Return(nil, errors.New("database error")).Once()
 
 		// Call service
-		feed, err := service.UpdatePriceFeed(1, "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
+		feed, err := service.UpdatePriceFeed("1", "BTC", "USD", "2h", 0.8, "48h", "0x5678", false)
 
 		// Assertions
 		assert.Error(t, err)
@@ -397,10 +444,10 @@ func TestDeletePriceFeed(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("DeletePriceFeed", 1).Return(nil).Once()
+		mockRepo.On("DeletePriceFeed", mock.Anything, "1").Return(nil).Once()
 
 		// Call service
-		err := service.DeletePriceFeed(1)
+		err := service.DeletePriceFeed("1")
 
 		// Assertions
 		require.NoError(t, err)
@@ -409,10 +456,10 @@ func TestDeletePriceFeed(t *testing.T) {
 
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("DeletePriceFeed", 1).Return(errors.New("database error")).Once()
+		mockRepo.On("DeletePriceFeed", mock.Anything, "1").Return(errors.New("database error")).Once()
 
 		// Call service
-		err := service.DeletePriceFeed(1)
+		err := service.DeletePriceFeed("1")
 
 		// Assertions
 		assert.Error(t, err)
@@ -428,7 +475,7 @@ func TestGetPriceFeed(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
 		expectedFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -438,10 +485,10 @@ func TestGetPriceFeed(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByID", 1).Return(expectedFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "1").Return(expectedFeed, nil).Once()
 
 		// Call service
-		feed, err := service.GetPriceFeed(1)
+		feed, err := service.GetPriceFeed("1")
 
 		// Assertions
 		require.NoError(t, err)
@@ -451,10 +498,10 @@ func TestGetPriceFeed(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByID", 999).Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "999").Return(nil, errors.New("not found")).Once()
 
 		// Call service
-		feed, err := service.GetPriceFeed(999)
+		feed, err := service.GetPriceFeed("999")
 
 		// Assertions
 		assert.Error(t, err)
@@ -470,7 +517,7 @@ func TestGetPriceFeedByPair(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
 		expectedFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -480,7 +527,7 @@ func TestGetPriceFeedByPair(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByPair", "BTC/USD").Return(expectedFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByPair", mock.Anything, "BTC/USD").Return(expectedFeed, nil).Once()
 
 		// Call service
 		feed, err := service.GetPriceFeedByPair("BTC/USD")
@@ -493,7 +540,7 @@ func TestGetPriceFeedByPair(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByPair", "XYZ/ABC").Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetPriceFeedByPair", mock.Anything, "XYZ/ABC").Return(nil, errors.New("not found")).Once()
 
 		// Call service
 		feed, err := service.GetPriceFeedByPair("XYZ/ABC")
@@ -513,7 +560,7 @@ func TestListPriceFeeds(t *testing.T) {
 		// Setup mock
 		expectedFeeds := []*models.PriceFeed{
 			{
-				ID:                 1,
+				ID:                 "1",
 				BaseToken:          "BTC",
 				QuoteToken:         "USD",
 				Pair:               "BTC/USD",
@@ -524,7 +571,7 @@ func TestListPriceFeeds(t *testing.T) {
 				Active:             true,
 			},
 			{
-				ID:                 2,
+				ID:                 "2",
 				BaseToken:          "ETH",
 				QuoteToken:         "USD",
 				Pair:               "ETH/USD",
@@ -535,7 +582,7 @@ func TestListPriceFeeds(t *testing.T) {
 				Active:             true,
 			},
 		}
-		mockRepo.On("ListPriceFeeds").Return(expectedFeeds, nil).Once()
+		mockRepo.On("ListPriceFeeds", mock.Anything).Return(expectedFeeds, nil).Once()
 
 		// Call service
 		feeds, err := service.ListPriceFeeds()
@@ -548,7 +595,7 @@ func TestListPriceFeeds(t *testing.T) {
 
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("ListPriceFeeds").Return(nil, errors.New("database error")).Once()
+		mockRepo.On("ListPriceFeeds", mock.Anything).Return(nil, errors.New("database error")).Once()
 
 		// Call service
 		feeds, err := service.ListPriceFeeds()
@@ -567,18 +614,18 @@ func TestGetLatestPrice(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
 		expectedPrice := &models.PriceData{
-			ID:          1,
-			PriceFeedID: 1,
+			ID:          "1",
+			PriceFeedID: "1",
 			Price:       50000.0,
 			Timestamp:   time.Now(),
-			RoundID:     123,
+			RoundID:     "123",
 			TxHash:      "0xabcd",
 			Source:      "test",
 		}
-		mockRepo.On("GetLatestPriceData", 1).Return(expectedPrice, nil).Once()
+		mockRepo.On("GetLatestPriceData", mock.Anything, "1").Return(expectedPrice, nil).Once()
 
 		// Call service
-		price, err := service.GetLatestPrice(1)
+		price, err := service.GetLatestPrice("1")
 
 		// Assertions
 		require.NoError(t, err)
@@ -588,10 +635,10 @@ func TestGetLatestPrice(t *testing.T) {
 
 	t.Run("NotFound", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetLatestPriceData", 999).Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetLatestPriceData", mock.Anything, "999").Return(nil, errors.New("not found")).Once()
 
 		// Call service
-		price, err := service.GetLatestPrice(999)
+		price, err := service.GetLatestPrice("999")
 
 		// Assertions
 		assert.Error(t, err)
@@ -608,28 +655,28 @@ func TestGetPriceHistory(t *testing.T) {
 		// Setup mock
 		expectedPrices := []*models.PriceData{
 			{
-				ID:          1,
-				PriceFeedID: 1,
+				ID:          "1",
+				PriceFeedID: "1",
 				Price:       50000.0,
 				Timestamp:   time.Now().Add(-time.Hour),
-				RoundID:     122,
+				RoundID:     "122",
 				TxHash:      "0xabcd1",
 				Source:      "test",
 			},
 			{
-				ID:          2,
-				PriceFeedID: 1,
+				ID:          "2",
+				PriceFeedID: "1",
 				Price:       51000.0,
 				Timestamp:   time.Now(),
-				RoundID:     123,
+				RoundID:     "123",
 				TxHash:      "0xabcd2",
 				Source:      "test",
 			},
 		}
-		mockRepo.On("GetPriceDataHistory", 1, 10, 0).Return(expectedPrices, nil).Once()
+		mockRepo.On("GetPriceDataHistory", mock.Anything, "1", 10, 0).Return(expectedPrices, nil).Once()
 
 		// Call service
-		prices, err := service.GetPriceHistory(1, 10, 0)
+		prices, err := service.GetPriceHistory("1", 10, 0)
 
 		// Assertions
 		require.NoError(t, err)
@@ -639,10 +686,10 @@ func TestGetPriceHistory(t *testing.T) {
 
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceDataHistory", 1, 10, 0).Return(nil, errors.New("database error")).Once()
+		mockRepo.On("GetPriceDataHistory", mock.Anything, "1", 10, 0).Return(nil, errors.New("database error")).Once()
 
 		// Call service
-		prices, err := service.GetPriceHistory(1, 10, 0)
+		prices, err := service.GetPriceHistory("1", 10, 0)
 
 		// Assertions
 		assert.Error(t, err)
@@ -658,7 +705,7 @@ func TestTriggerPriceUpdate(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		// Setup mock
 		existingFeed := &models.PriceFeed{
-			ID:                 1,
+			ID:                 "1",
 			BaseToken:          "BTC",
 			QuoteToken:         "USD",
 			Pair:               "BTC/USD",
@@ -668,10 +715,10 @@ func TestTriggerPriceUpdate(t *testing.T) {
 			ContractAddress:    "0x1234",
 			Active:             true,
 		}
-		mockRepo.On("GetPriceFeedByID", 1).Return(existingFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "1").Return(existingFeed, nil).Once()
 
 		// Call service
-		err := service.TriggerPriceUpdate(1)
+		err := service.TriggerPriceUpdate("1")
 
 		// Assertions
 		require.NoError(t, err)
@@ -680,10 +727,10 @@ func TestTriggerPriceUpdate(t *testing.T) {
 
 	t.Run("FeedNotFound", func(t *testing.T) {
 		// Setup mock
-		mockRepo.On("GetPriceFeedByID", 999).Return(nil, errors.New("not found")).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "999").Return(nil, errors.New("not found")).Once()
 
 		// Call service
-		err := service.TriggerPriceUpdate(999)
+		err := service.TriggerPriceUpdate("999")
 
 		// Assertions
 		assert.Error(t, err)
@@ -694,7 +741,7 @@ func TestTriggerPriceUpdate(t *testing.T) {
 	t.Run("InactiveFeed", func(t *testing.T) {
 		// Setup mock
 		inactiveFeed := &models.PriceFeed{
-			ID:                 2,
+			ID:                 "2",
 			BaseToken:          "ETH",
 			QuoteToken:         "USD",
 			Pair:               "ETH/USD",
@@ -704,10 +751,10 @@ func TestTriggerPriceUpdate(t *testing.T) {
 			ContractAddress:    "0x5678",
 			Active:             false,
 		}
-		mockRepo.On("GetPriceFeedByID", 2).Return(inactiveFeed, nil).Once()
+		mockRepo.On("GetPriceFeedByID", mock.Anything, "2").Return(inactiveFeed, nil).Once()
 
 		// Call service
-		err := service.TriggerPriceUpdate(2)
+		err := service.TriggerPriceUpdate("2")
 
 		// Assertions
 		assert.Error(t, err)

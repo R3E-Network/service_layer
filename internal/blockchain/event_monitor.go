@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/R3E-Network/service_layer/internal/database"
-	"github.com/R3E-Network/service_layer/internal/models"
-	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/nspcc-dev/neo-go/pkg/core/block"
 	"github.com/nspcc-dev/neo-go/pkg/core/state"
 	"github.com/nspcc-dev/neo-go/pkg/core/transaction"
+	"go.uber.org/zap"
+
+	"github.com/R3E-Network/service_layer/internal/database"
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/pkg/logger"
 )
 
 // EventProcessor processes blockchain events and notifies subscribers
@@ -213,10 +215,19 @@ func (m *EventMonitor) processBlock(ctx context.Context, blockNum int) error {
 		return fmt.Errorf("failed to get block %d: %w", blockNum, err)
 	}
 
+	// We need to assert the type to *block.Block to access its transactions
+	blockObj, ok := block.(*block.Block)
+	if !ok {
+		m.logger.Error("Block is not of expected type", zap.Int("height", blockNum))
+		return fmt.Errorf("block at height %d is not of expected type", blockNum)
+	}
+
 	// Process the block
-	for _, tx := range block.Transactions {
-		if err := m.processTransaction(ctx, tx, block); err != nil {
-			return fmt.Errorf("failed to process transaction %s: %w", tx.Hash().StringLE(), err)
+	for _, tx := range blockObj.Transactions {
+		if err := m.processTransaction(ctx, tx, blockObj); err != nil {
+			m.logger.Errorf("Failed to process transaction %s: %v", tx.Hash().StringLE(), err)
+			// Continue with other transactions instead of aborting everything
+			continue
 		}
 	}
 
@@ -226,28 +237,22 @@ func (m *EventMonitor) processBlock(ctx context.Context, blockNum int) error {
 // processTransaction processes a single transaction
 func (m *EventMonitor) processTransaction(ctx context.Context, tx *transaction.Transaction, blk *block.Block) error {
 	// Get the application log for the transaction
-	appLog, err := m.client.rpcClient.GetApplicationLog(tx.Hash(), nil)
+	appLog, err := m.client.GetApplicationLog(tx.Hash().StringLE())
 	if err != nil {
-		// If there's no application log, the transaction didn't execute successfully or didn't generate events
-		return nil
+		return fmt.Errorf("failed to get application log for transaction %s: %w", tx.Hash().StringLE(), err)
 	}
 
-	// Process each execution in the application log
+	// Process all executions in the application log
 	for _, execution := range appLog.Executions {
+		// Process all notifications in the execution
 		for _, notification := range execution.Notifications {
-			// Create a blockchain event
 			event, err := m.createBlockchainEvent(notification, tx, blk)
 			if err != nil {
 				m.logger.Errorf("Failed to create blockchain event: %v", err)
 				continue
 			}
 
-			// Store the event in the database
-			if err := m.eventRepo.CreateEvent(ctx, event); err != nil {
-				return fmt.Errorf("failed to store blockchain event: %w", err)
-			}
-
-			// Process the event
+			// Process the event with the event processor
 			if err := m.eventProcessor.ProcessEvent(event); err != nil {
 				m.logger.Errorf("Failed to process blockchain event: %v", err)
 			}
@@ -283,7 +288,7 @@ func (m *EventMonitor) createBlockchainEvent(
 	// Create blockchain event
 	timestamp := time.Unix(int64(blk.Timestamp), 0)
 	return models.NewBlockchainEvent(
-		notification.Contract.StringLE(),
+		notification.ScriptHash.StringLE(),
 		notification.Name,
 		parametersJSON,
 		tx.Hash().StringLE(),

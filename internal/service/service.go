@@ -5,16 +5,17 @@ import (
 	"log"
 	"sync"
 
-	"github.com/your-org/neo-oracle/internal/blockchain"
-	"github.com/your-org/neo-oracle/internal/common"
-	"github.com/your-org/neo-oracle/internal/config"
-	"github.com/your-org/neo-oracle/internal/tee"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/common"
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/pkg/logger"
+	"github.com/R3E-Network/service_layer/internal/tee"
 )
 
 // ServiceLayer represents the main oracle service coordinator
 type ServiceLayer struct {
 	config     *config.Config
-	blockchain *blockchain.Client
+	blockchain blockchain.BlockchainClient
 	tee        *tee.Manager
 	services   []common.Service
 	ctx        context.Context
@@ -26,15 +27,26 @@ type ServiceLayer struct {
 func NewServiceLayer(cfg *config.Config) (*ServiceLayer, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Initialize blockchain client
-	bc, err := blockchain.NewClient(cfg.Blockchain)
+	// Initialize logger
+	log := logger.New(logger.LoggingConfig{
+		Level:      cfg.Logging.Level,
+		Format:     cfg.Logging.Format,
+		Output:     cfg.Logging.Output,
+		FilePrefix: cfg.Logging.FilePrefix,
+	})
+
+	// Initialize blockchain client factory
+	bcFactory := blockchain.NewNeoBlockchainClientFactory(&cfg.Neo, log)
+	
+	// Create blockchain client
+	bc, err := bcFactory.Create()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
 
 	// Initialize TEE manager
-	teeManager, err := tee.NewManager(cfg.TEE)
+	teeManager, err := tee.NewManager(cfg, log)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -60,7 +72,7 @@ func (s *ServiceLayer) Start() error {
 	log.Println("Starting Neo N3 Oracle Service Layer...")
 
 	// Start blockchain client
-	if err := s.blockchain.Connect(); err != nil {
+	if err := s.blockchain.CheckHealth(s.ctx); err != nil {
 		return err
 	}
 
@@ -88,20 +100,33 @@ func (s *ServiceLayer) Start() error {
 // Stop gracefully shuts down all services
 func (s *ServiceLayer) Stop() error {
 	log.Println("Stopping Neo N3 Oracle Service Layer...")
+
+	// Signal cancellation to all services
 	s.cancelFunc()
 
-	// Wait for all services to stop
+	// Wait for all services to complete their work
 	s.wg.Wait()
 
-	// Stop TEE manager
-	if err := s.tee.Shutdown(); err != nil {
-		log.Printf("Error shutting down TEE: %v", err)
+	// Stop blockchain client (close connections)
+	if err := s.blockchain.Close(); err != nil {
+		log.Printf("Error closing blockchain client: %v", err)
 	}
 
-	// Disconnect blockchain client
-	if err := s.blockchain.Disconnect(); err != nil {
-		log.Printf("Error disconnecting blockchain client: %v", err)
+	// Cleanup TEE environment
+	if err := s.tee.Cleanup(); err != nil {
+		log.Printf("Error cleaning up TEE environment: %v", err)
 	}
 
+	log.Println("Neo N3 Oracle Service Layer stopped")
 	return nil
+}
+
+// GetBlockchainClient returns the blockchain client for use by services
+func (s *ServiceLayer) GetBlockchainClient() blockchain.BlockchainClient {
+	return s.blockchain
+}
+
+// GetTEEManager returns the TEE manager for use by services
+func (s *ServiceLayer) GetTEEManager() *tee.Manager {
+	return s.tee
 }

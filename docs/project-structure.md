@@ -34,9 +34,9 @@ import (
 	"log"
 	"sync"
 	
-	"github.com/your-org/neo-oracle/internal/config"
-	"github.com/your-org/neo-oracle/internal/blockchain"
-	"github.com/your-org/neo-oracle/internal/tee"
+	"github.com/R3E-Network/service_layer/internal/config"
+	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/tee"
 )
 
 // ServiceLayer represents the main oracle service coordinator

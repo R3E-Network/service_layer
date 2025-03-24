@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ type PriceFeedService struct {
 	config               *config.Config
 	logger               *logger.Logger
 	priceFeedRepository  models.PriceFeedRepository
-	blockchainClient     *blockchain.Client
+	blockchainClient     blockchain.BlockchainClient
 	gasBankService       *gasbank.Service
 	teeManager           *tee.Manager
 	fetcherFactory       PriceFetcherFactory
@@ -49,9 +50,9 @@ type PriceAggregator interface {
 
 // UpdateScheduler schedules price updates
 type UpdateScheduler struct {
-	feeds      map[int]*models.PriceFeed
-	timers     map[int]*time.Timer
-	heartbeats map[int]*time.Timer
+	feeds      map[string]*models.PriceFeed
+	timers     map[string]*time.Timer
+	heartbeats map[string]*time.Timer
 	mu         sync.RWMutex
 	triggerCh  chan *models.PriceFeed
 }
@@ -61,26 +62,34 @@ func NewService(
 	cfg *config.Config,
 	log *logger.Logger,
 	priceFeedRepository models.PriceFeedRepository,
-	blockchainClient *blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 	gasBankService *gasbank.Service,
 	teeManager *tee.Manager,
 ) *PriceFeedService {
-	service := &PriceFeedService{
-		config:              cfg,
-		logger:              log,
-		priceFeedRepository: priceFeedRepository,
-		blockchainClient:    blockchainClient,
-		gasBankService:      gasBankService,
-		teeManager:          teeManager,
-		fetcherFactory:      NewDefaultFetcherFactory(cfg, log),
-		aggregator:          NewMedianAggregator(),
-		updateTriggerChan:   make(chan *models.PriceFeed, 100),
-		shutdownChan:        make(chan struct{}),
+	// Create channels for control
+	updateTriggerChan := make(chan *models.PriceFeed, 100)
+	shutdownChan := make(chan struct{})
+
+	// Create fetcher factory and aggregator
+	fetcherFactory := NewDefaultFetcherFactory(cfg, log)
+	aggregator := NewMedianAggregator()
+
+	// Create scheduler
+	scheduler := NewUpdateScheduler(updateTriggerChan)
+
+	return &PriceFeedService{
+		config:               cfg,
+		logger:               log,
+		priceFeedRepository:  priceFeedRepository,
+		blockchainClient:     blockchainClient,
+		gasBankService:       gasBankService,
+		teeManager:           teeManager,
+		fetcherFactory:       fetcherFactory,
+		aggregator:           aggregator,
+		updateScheduler:      scheduler,
+		updateTriggerChan:    updateTriggerChan,
+		shutdownChan:         shutdownChan,
 	}
-
-	service.updateScheduler = NewUpdateScheduler(service.updateTriggerChan)
-
-	return service
 }
 
 // Start starts the price feed service
@@ -99,7 +108,7 @@ func (s *PriceFeedService) Start(ctx context.Context) error {
 	}
 
 	// Load all active price feeds
-	feeds, err := s.priceFeedRepository.ListPriceFeeds()
+	feeds, err := s.priceFeedRepository.ListPriceFeeds(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load price feeds: %w", err)
 	}
@@ -108,7 +117,7 @@ func (s *PriceFeedService) Start(ctx context.Context) error {
 	for _, feed := range feeds {
 		if feed.Active {
 			if err := s.scheduleUpdates(feed); err != nil {
-				s.logger.Errorf("Failed to schedule updates for feed %d (%s): %v", feed.ID, feed.Pair, err)
+				s.logger.Errorf("Failed to schedule updates for feed %s (%s): %v", feed.ID, feed.Pair, err)
 				continue
 			}
 		}
@@ -149,7 +158,7 @@ func (s *PriceFeedService) CreatePriceFeed(
 	pair := fmt.Sprintf("%s/%s", baseToken, quoteToken)
 
 	// Check if pair already exists
-	existingFeed, err := s.priceFeedRepository.GetPriceFeedByPair(pair)
+	existingFeed, err := s.priceFeedRepository.GetPriceFeedByPair(context.Background(), pair)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing feed: %w", err)
 	}
@@ -183,7 +192,7 @@ func (s *PriceFeedService) CreatePriceFeed(
 	}
 
 	// Save to database
-	feed, err = s.priceFeedRepository.CreatePriceFeed(feed)
+	feed, err = s.priceFeedRepository.CreatePriceFeed(context.Background(), feed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create price feed: %w", err)
 	}
@@ -191,24 +200,24 @@ func (s *PriceFeedService) CreatePriceFeed(
 	// If the feed is active, schedule updates
 	if feed.Active {
 		if err := s.scheduleUpdates(feed); err != nil {
-			s.logger.Errorf("Failed to schedule updates for feed %d (%s): %v", feed.ID, feed.Pair, err)
+			s.logger.Errorf("Failed to schedule updates for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		}
 	}
 
-	s.logger.Infof("Created price feed %d (%s)", feed.ID, feed.Pair)
+	s.logger.Infof("Created price feed %s (%s)", feed.ID, feed.Pair)
 	return feed, nil
 }
 
 // UpdatePriceFeed updates a price feed
 func (s *PriceFeedService) UpdatePriceFeed(
-	id int,
+	id string,
 	baseToken, quoteToken, updateInterval string,
 	deviationThreshold float64,
 	heartbeatInterval, contractAddress string,
 	active bool,
 ) (*models.PriceFeed, error) {
 	// Get existing feed
-	feed, err := s.priceFeedRepository.GetPriceFeedByID(id)
+	feed, err := s.priceFeedRepository.GetPriceFeedByID(context.Background(), id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get price feed: %w", err)
 	}
@@ -249,7 +258,7 @@ func (s *PriceFeedService) UpdatePriceFeed(
 	feed.Active = active
 
 	// Save to database
-	feed, err = s.priceFeedRepository.UpdatePriceFeed(feed)
+	feed, err = s.priceFeedRepository.UpdatePriceFeed(context.Background(), feed)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update price feed: %w", err)
 	}
@@ -258,7 +267,7 @@ func (s *PriceFeedService) UpdatePriceFeed(
 	if feed.Active && !previouslyActive {
 		// Feed was activated
 		if err := s.scheduleUpdates(feed); err != nil {
-			s.logger.Errorf("Failed to schedule updates for feed %d (%s): %v", feed.ID, feed.Pair, err)
+			s.logger.Errorf("Failed to schedule updates for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		}
 	} else if !feed.Active && previouslyActive {
 		// Feed was deactivated
@@ -267,18 +276,18 @@ func (s *PriceFeedService) UpdatePriceFeed(
 		// Feed was already active, but configuration changed
 		s.updateScheduler.RemoveFeed(feed.ID)
 		if err := s.scheduleUpdates(feed); err != nil {
-			s.logger.Errorf("Failed to reschedule updates for feed %d (%s): %v", feed.ID, feed.Pair, err)
+			s.logger.Errorf("Failed to reschedule updates for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		}
 	}
 
-	s.logger.Infof("Updated price feed %d (%s)", feed.ID, feed.Pair)
+	s.logger.Infof("Updated price feed %s (%s)", feed.ID, feed.Pair)
 	return feed, nil
 }
 
 // DeletePriceFeed deletes a price feed
-func (s *PriceFeedService) DeletePriceFeed(id int) error {
+func (s *PriceFeedService) DeletePriceFeed(id string) error {
 	// Get existing feed
-	feed, err := s.priceFeedRepository.GetPriceFeedByID(id)
+	feed, err := s.priceFeedRepository.GetPriceFeedByID(context.Background(), id)
 	if err != nil {
 		return fmt.Errorf("failed to get price feed: %w", err)
 	}
@@ -292,42 +301,42 @@ func (s *PriceFeedService) DeletePriceFeed(id int) error {
 	}
 
 	// Delete from database
-	if err := s.priceFeedRepository.DeletePriceFeed(id); err != nil {
+	if err := s.priceFeedRepository.DeletePriceFeed(context.Background(), id); err != nil {
 		return fmt.Errorf("failed to delete price feed: %w", err)
 	}
 
-	s.logger.Infof("Deleted price feed %d (%s)", feed.ID, feed.Pair)
+	s.logger.Infof("Deleted price feed %s (%s)", feed.ID, feed.Pair)
 	return nil
 }
 
 // GetPriceFeed gets a price feed by ID
-func (s *PriceFeedService) GetPriceFeed(id int) (*models.PriceFeed, error) {
-	return s.priceFeedRepository.GetPriceFeedByID(id)
+func (s *PriceFeedService) GetPriceFeed(id string) (*models.PriceFeed, error) {
+	return s.priceFeedRepository.GetPriceFeedByID(context.Background(), id)
 }
 
 // GetPriceFeedByPair gets a price feed by token pair
 func (s *PriceFeedService) GetPriceFeedByPair(pair string) (*models.PriceFeed, error) {
-	return s.priceFeedRepository.GetPriceFeedByPair(pair)
+	return s.priceFeedRepository.GetPriceFeedByPair(context.Background(), pair)
 }
 
 // ListPriceFeeds lists all price feeds
 func (s *PriceFeedService) ListPriceFeeds() ([]*models.PriceFeed, error) {
-	return s.priceFeedRepository.ListPriceFeeds()
+	return s.priceFeedRepository.ListPriceFeeds(context.Background())
 }
 
 // GetLatestPrice gets the latest price for a price feed
-func (s *PriceFeedService) GetLatestPrice(priceFeedID int) (*models.PriceData, error) {
-	return s.priceFeedRepository.GetLatestPriceData(priceFeedID)
+func (s *PriceFeedService) GetLatestPrice(priceFeedID string) (*models.PriceData, error) {
+	return s.priceFeedRepository.GetLatestPriceData(context.Background(), priceFeedID)
 }
 
 // GetPriceHistory gets the price history for a price feed
-func (s *PriceFeedService) GetPriceHistory(priceFeedID int, limit, offset int) ([]*models.PriceData, error) {
-	return s.priceFeedRepository.GetPriceDataHistory(priceFeedID, limit, offset)
+func (s *PriceFeedService) GetPriceHistory(priceFeedID string, limit, offset int) ([]*models.PriceData, error) {
+	return s.priceFeedRepository.GetPriceDataHistory(context.Background(), priceFeedID, limit, offset)
 }
 
 // TriggerPriceUpdate manually triggers a price update
-func (s *PriceFeedService) TriggerPriceUpdate(priceFeedID int) error {
-	feed, err := s.priceFeedRepository.GetPriceFeedByID(priceFeedID)
+func (s *PriceFeedService) TriggerPriceUpdate(priceFeedID string) error {
+	feed, err := s.priceFeedRepository.GetPriceFeedByID(context.Background(), priceFeedID)
 	if err != nil {
 		return fmt.Errorf("failed to get price feed: %w", err)
 	}
@@ -365,17 +374,17 @@ func (s *PriceFeedService) updateWorker(ctx context.Context) {
 
 // processPriceUpdate processes a price update for a feed
 func (s *PriceFeedService) processPriceUpdate(ctx context.Context, feed *models.PriceFeed) {
-	s.logger.Infof("Processing price update for feed %d (%s)", feed.ID, feed.Pair)
+	s.logger.Infof("Processing price update for feed %s (%s)", feed.ID, feed.Pair)
 
 	// Step 1: Fetch prices from all sources
 	prices, err := s.fetchPrices(ctx, feed.BaseToken, feed.QuoteToken)
 	if err != nil {
-		s.logger.Errorf("Failed to fetch prices for feed %d (%s): %v", feed.ID, feed.Pair, err)
+		s.logger.Errorf("Failed to fetch prices for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		return
 	}
 
 	if len(prices) == 0 {
-		s.logger.Errorf("No prices fetched for feed %d (%s)", feed.ID, feed.Pair)
+		s.logger.Errorf("No prices fetched for feed %s (%s)", feed.ID, feed.Pair)
 		return
 	}
 
@@ -389,26 +398,26 @@ func (s *PriceFeedService) processPriceUpdate(ctx context.Context, feed *models.
 	// Step 3: Aggregate prices
 	aggregatedPrice, err := s.aggregator.Aggregate(prices, weights)
 	if err != nil {
-		s.logger.Errorf("Failed to aggregate prices for feed %d (%s): %v", feed.ID, feed.Pair, err)
+		s.logger.Errorf("Failed to aggregate prices for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		return
 	}
 
 	// Step 4: Check if update is needed based on deviation or heartbeat
 	needsUpdate, err := s.needsUpdate(feed, aggregatedPrice)
 	if err != nil {
-		s.logger.Errorf("Failed to check if update is needed for feed %d (%s): %v", feed.ID, feed.Pair, err)
+		s.logger.Errorf("Failed to check if update is needed for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		return
 	}
 
 	if !needsUpdate {
-		s.logger.Infof("No update needed for feed %d (%s)", feed.ID, feed.Pair)
+		s.logger.Infof("No update needed for feed %s (%s)", feed.ID, feed.Pair)
 		return
 	}
 
 	// Step 5: Update on-chain price
 	roundID, txHash, err := s.updateOnChainPrice(ctx, feed, aggregatedPrice)
 	if err != nil {
-		s.logger.Errorf("Failed to update on-chain price for feed %d (%s): %v", feed.ID, feed.Pair, err)
+		s.logger.Errorf("Failed to update on-chain price for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		return
 	}
 
@@ -422,19 +431,19 @@ func (s *PriceFeedService) processPriceUpdate(ctx context.Context, feed *models.
 		Source:      "aggregate",
 	}
 
-	_, err = s.priceFeedRepository.CreatePriceData(priceData)
+	_, err = s.priceFeedRepository.CreatePriceData(context.Background(), priceData)
 	if err != nil {
-		s.logger.Errorf("Failed to record price data for feed %d (%s): %v", feed.ID, feed.Pair, err)
+		s.logger.Errorf("Failed to record price data for feed %s (%s): %v", feed.ID, feed.Pair, err)
 		return
 	}
 
-	s.logger.Infof("Price update completed for feed %d (%s): %f", feed.ID, feed.Pair, aggregatedPrice)
+	s.logger.Infof("Price update completed for feed %s (%s): %f", feed.ID, feed.Pair, aggregatedPrice)
 }
 
 // fetchPrices fetches prices from all configured sources
 func (s *PriceFeedService) fetchPrices(ctx context.Context, baseToken, quoteToken string) (map[string]float64, error) {
 	// Get all active price sources
-	sources, err := s.priceFeedRepository.ListPriceSources()
+	sources, err := s.priceFeedRepository.ListPriceSources(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list price sources: %w", err)
 	}
@@ -494,7 +503,7 @@ func (s *PriceFeedService) fetchPrices(ctx context.Context, baseToken, quoteToke
 
 // needsUpdate checks if a price update is needed based on deviation or heartbeat
 func (s *PriceFeedService) needsUpdate(feed *models.PriceFeed, newPrice float64) (bool, error) {
-	latestPrice, err := s.priceFeedRepository.GetLatestPriceData(feed.ID)
+	latestPrice, err := s.priceFeedRepository.GetLatestPriceData(context.Background(), feed.ID)
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest price data: %w", err)
 	}
@@ -527,26 +536,35 @@ func (s *PriceFeedService) needsUpdate(feed *models.PriceFeed, newPrice float64)
 }
 
 // updateOnChainPrice updates the price on the blockchain
-func (s *PriceFeedService) updateOnChainPrice(ctx context.Context, feed *models.PriceFeed, price float64) (int64, string, error) {
+func (s *PriceFeedService) updateOnChainPrice(ctx context.Context, feed *models.PriceFeed, price float64) (string, string, error) {
 	if feed.ContractAddress == "" {
-		return 0, "", errors.New("contract address not configured")
+		return "", "", errors.New("contract address not configured")
 	}
 
 	// Get latest round ID
-	latestPrice, err := s.priceFeedRepository.GetLatestPriceData(feed.ID)
+	latestPrice, err := s.priceFeedRepository.GetLatestPriceData(context.Background(), feed.ID)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to get latest price data: %w", err)
+		return "", "", fmt.Errorf("failed to get latest price data: %w", err)
 	}
 
 	// Calculate new round ID
-	var roundID int64 = 1
+	var roundID string = "1"
 	if latestPrice != nil {
-		roundID = latestPrice.RoundID + 1
+		// Try to convert to int, increment, and convert back to string
+		intRoundID, parseErr := strconv.ParseInt(latestPrice.RoundID, 10, 64)
+		if parseErr == nil {
+			// Successful parse, increment and convert back
+			roundID = strconv.FormatInt(intRoundID+1, 10)
+		} else {
+			// If cannot parse, use timestamp-based ID as fallback
+			roundID = strconv.FormatInt(time.Now().UnixNano(), 10)
+			s.logger.Warnf("Could not parse previous round ID, using timestamp: %s", roundID)
+		}
 	}
 
 	// In a real implementation, this would use the blockchain client to send a transaction
 	// For now, we'll log the price update and return a placeholder transaction hash
-	s.logger.Infof("Would update price for feed %d (%s) on contract %s: roundID=%d, price=%f",
+	s.logger.Infof("Would update price for feed %s (%s) on contract %s: roundID=%s, price=%f",
 		feed.ID, feed.Pair, feed.ContractAddress, roundID, price)
 
 	// Simulate blockchain transaction
@@ -558,9 +576,9 @@ func (s *PriceFeedService) updateOnChainPrice(ctx context.Context, feed *models.
 // NewUpdateScheduler creates a new update scheduler
 func NewUpdateScheduler(triggerCh chan *models.PriceFeed) *UpdateScheduler {
 	return &UpdateScheduler{
-		feeds:      make(map[int]*models.PriceFeed),
-		timers:     make(map[int]*time.Timer),
-		heartbeats: make(map[int]*time.Timer),
+		feeds:      make(map[string]*models.PriceFeed),
+		timers:     make(map[string]*time.Timer),
+		heartbeats: make(map[string]*time.Timer),
 		triggerCh:  triggerCh,
 	}
 }
@@ -602,7 +620,7 @@ func (u *UpdateScheduler) AddFeed(feed *models.PriceFeed) error {
 }
 
 // RemoveFeed removes a feed from the scheduler
-func (u *UpdateScheduler) RemoveFeed(feedID int) {
+func (u *UpdateScheduler) RemoveFeed(feedID string) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -637,11 +655,11 @@ func (u *UpdateScheduler) Stop() {
 		delete(u.heartbeats, id)
 	}
 
-	u.feeds = make(map[int]*models.PriceFeed)
+	u.feeds = make(map[string]*models.PriceFeed)
 }
 
 // triggerUpdate triggers an update for a feed
-func (u *UpdateScheduler) triggerUpdate(feedID int) {
+func (u *UpdateScheduler) triggerUpdate(feedID string) {
 	u.mu.RLock()
 	feed, ok := u.feeds[feedID]
 	if !ok {
@@ -669,7 +687,7 @@ func (u *UpdateScheduler) triggerUpdate(feedID int) {
 }
 
 // triggerHeartbeat triggers a heartbeat update for a feed
-func (u *UpdateScheduler) triggerHeartbeat(feedID int) {
+func (u *UpdateScheduler) triggerHeartbeat(feedID string) {
 	u.mu.RLock()
 	feed, ok := u.feeds[feedID]
 	if !ok {

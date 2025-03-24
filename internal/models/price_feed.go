@@ -31,12 +31,18 @@ type PriceSource struct {
 
 // PriceData represents a price data point from a source
 type PriceData struct {
-	SourceID   string    `json:"source_id" db:"source_id"`
-	SourceName string    `json:"source_name" db:"source_name"`
-	Price      float64   `json:"price" db:"price"`
-	Timestamp  time.Time `json:"timestamp" db:"timestamp"`
-	Success    bool      `json:"success" db:"success"`
-	Error      string    `json:"error" db:"error"`
+	ID          string    `json:"id" db:"id"`
+	PriceFeedID string    `json:"price_feed_id" db:"price_feed_id"`
+	SourceID    string    `json:"source_id" db:"source_id"`
+	SourceName  string    `json:"source_name" db:"source_name"`
+	Source      string    `json:"source" db:"source"`
+	Price       float64   `json:"price" db:"price"`
+	RoundID     string    `json:"round_id" db:"round_id"`
+	TxHash      string    `json:"tx_hash" db:"tx_hash"`
+	Timestamp   time.Time `json:"timestamp" db:"timestamp"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	Success     bool      `json:"success" db:"success"`
+	Error       string    `json:"error" db:"error"`
 }
 
 // PriceFeed represents a price feed configuration

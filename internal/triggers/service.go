@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/R3E-Network/service_layer/internal/functions"
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/internal/pricefeed"
 	"github.com/robfig/cron/v3"
-	"github.com/your-org/neo-oracle/internal/functions"
-	"github.com/your-org/neo-oracle/internal/models"
-	"github.com/your-org/neo-oracle/internal/pricefeed"
 )
 
 // Service manages automatic function execution triggers

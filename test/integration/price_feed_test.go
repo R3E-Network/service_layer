@@ -17,6 +17,7 @@ import (
 	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/R3E-Network/service_layer/internal/pricefeed"
 	"github.com/R3E-Network/service_layer/internal/tee"
+	"github.com/R3E-Network/service_layer/pkg/logger"
 	"github.com/R3E-Network/service_layer/test/mocks"
 )
 
@@ -25,7 +26,7 @@ import (
 func TestPriceFeedIntegration(t *testing.T) {
 	// Set up test environment
 	ctx := context.Background()
-	cfg := setupPriceFeedTestConfig()
+	cfg := createTestConfig()
 	mockBlockchain := setupPriceFeedMockBlockchain(t)
 	teeManager := setupPriceFeedTEEManager(t)
 	priceFeedService := setupPriceFeedService(t, cfg, mockBlockchain, teeManager)
@@ -37,19 +38,24 @@ func TestPriceFeedIntegration(t *testing.T) {
 	t.Run("CompleteUpdateCycle", testCompleteUpdateCycle(ctx, priceFeedService, mockBlockchain))
 }
 
-func setupPriceFeedTestConfig() *config.Config {
+func createTestConfig() *config.Config {
 	return &config.Config{
 		PriceFeed: config.PriceFeedConfig{
-			UpdateInterval: 60, // 60 seconds
-			Sources: map[string]string{
-				"source1": "http://example.com/api1",
-				"source2": "http://example.com/api2",
-				"source3": "http://example.com/api3",
-			},
+			UpdateIntervalSec: 60, // 60 seconds
+			DataSources:       []string{"source1", "source2", "source3"},
+			SupportedTokens:   []string{"NEO", "GAS", "ETH", "BTC"},
 		},
 		Blockchain: config.BlockchainConfig{
-			Network:     "private",
-			RPCEndpoint: "http://localhost:10332",
+			Network:          "private",
+			RPCEndpoint:      "http://localhost:10332",
+			RPCEndpoints:     []string{"http://localhost:10332"},
+			NetworkMagic:     860833102,
+			WalletPath:       "./test-wallet.json",
+			WalletPassword:   "test",
+			AccountAddress:   "NTestAddress",
+			GasBankContract:  "0xTestContract",
+			OracleContract:   "0xTestOracleContract",
+			PriceFeedTimeout: 30,
 		},
 	}
 }
@@ -79,12 +85,23 @@ func setupPriceFeedMockBlockchain(t *testing.T) *mocks.BlockchainClient {
 }
 
 func setupPriceFeedTEEManager(t *testing.T) *tee.Manager {
-	// In tests, we use a mock TEE environment
+	log := logger.New(logger.LoggingConfig{
+		Level:  "info",
+		Format: "json",
+		Output: "console",
+	})
+	
 	return tee.NewManager(&config.Config{
 		TEE: config.TEEConfig{
-			Enabled: false, // Use simulation mode for tests
+			Provider:          "simulation",
+			EnableAttestation: false,
 		},
-	})
+		Functions: config.FunctionsConfig{
+			MaxMemory:        512,
+			ExecutionTimeout: 30,
+			MaxConcurrency:   10,
+		},
+	}, log)
 }
 
 func setupPriceFeedService(t *testing.T, cfg *config.Config, blockchainClient blockchain.Client, teeManager *tee.Manager) *pricefeed.Service {

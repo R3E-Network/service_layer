@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/your-org/neo-oracle/internal/config"
+	"github.com/R3E-Network/service_layer/internal/config"
 )
 
 // Service manages application logging

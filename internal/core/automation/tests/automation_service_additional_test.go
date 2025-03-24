@@ -284,7 +284,7 @@ func TestScheduledTriggerExecution(t *testing.T) {
 
 	// Create execution result
 	executionResult := &models.ExecutionResult{
-		ExecutionID: 1,
+		ExecutionID: "1",
 		Status:      "success",
 		Output:      json.RawMessage(`{"result": "success"}`),
 	}

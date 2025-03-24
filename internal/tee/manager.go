@@ -181,6 +181,27 @@ func (m *Manager) Close() error {
 	return m.provider.Close()
 }
 
+// Cleanup performs cleanup operations and releases resources
+func (m *Manager) Cleanup() error {
+	m.logger.Info("Cleaning up TEE resources")
+	
+	// First close the manager
+	if err := m.Close(); err != nil {
+		m.logger.Error("Error during TEE manager close", "error", err)
+		return err
+	}
+	
+	// Clean up any remaining enclaves
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	// Reset state
+	m.enclaves = nil
+	m.initialized = false
+	
+	return nil
+}
+
 // ExecuteJavaScriptSimulation simulates JS execution for testing
 func ExecuteJavaScriptSimulation(ctx context.Context, code string, params map[string]interface{}) (interface{}, error) {
 	// In a real implementation, this would execute the JavaScript code

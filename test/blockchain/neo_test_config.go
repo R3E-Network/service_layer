@@ -37,11 +37,10 @@ func SetupNeoTestEnvironment(t *testing.T) *TestNeoConfig {
 
 	// Set up environment variables for testing
 	envVars := map[string]string{
-		"NEO_RPC_URL":   "http://seed1.neo.org:10332", // Public testnet node
-		"NEO_NETWORK":   "testnet",
-		"NEO_GAS_LIMIT": "20000000",
-		"NEO_GAS_PRICE": "1000",
-		"NEO_NODES":     "http://seed1.neo.org:10332,http://seed2.neo.org:10332",
+		"NEO_RPC_ENDPOINT": "http://seed1.neo.org:10332", // Public testnet node
+		"NEO_NETWORK":      "testnet",
+		"NEO_NETWORK_ID":   "5",  // TestNet network ID
+		"NEO_CHAIN_ID":     "860", // TestNet chain ID
 	}
 
 	// Store original values and set new ones
@@ -53,15 +52,15 @@ func SetupNeoTestEnvironment(t *testing.T) *TestNeoConfig {
 
 	// Create Neo config
 	neoConfig := &config.NeoConfig{
-		RPCURL:   envVars["NEO_RPC_URL"],
-		Network:  envVars["NEO_NETWORK"],
-		GasLimit: 20000000,
-		GasPrice: 1000,
-		Nodes:    []string{"http://seed1.neo.org:10332", "http://seed2.neo.org:10332"},
+		NetworkID:   5,
+		ChainID:     860,
+		Network:     envVars["NEO_NETWORK"],
+		RPCEndpoint: envVars["NEO_RPC_ENDPOINT"],
+		WSEndpoint:  "", // Not used in tests
 	}
 
-	// Create logger
-	logConfig := config.LoggingConfig{
+	// Create logger with the pkg/logger structure
+	logConfig := logger.LoggingConfig{
 		Level:  "debug",
 		Format: "json",
 		Output: "stdout",
@@ -93,17 +92,8 @@ func (c *TestNeoConfig) TeardownNeoTestEnvironment(t *testing.T) {
 func (c *TestNeoConfig) CreateClient(t *testing.T) *blockchain.Client {
 	t.Helper()
 
-	// Configure nodes
-	var nodes []blockchain.NodeConfig
-	for _, nodeURL := range c.NeoConfig.Nodes {
-		nodes = append(nodes, blockchain.NodeConfig{
-			URL:    nodeURL,
-			Weight: 1.0, // Default equal weight for all nodes
-		})
-	}
-
 	// Create a real blockchain client
-	client, err := blockchain.NewClient(c.NeoConfig, c.Logger, nodes)
+	client, err := blockchain.NewClient(c.NeoConfig, c.Logger)
 	require.NoError(t, err)
 	require.NotNil(t, client)
 
@@ -122,6 +112,6 @@ func (c *TestNeoConfig) GetWellKnownContractHash() string {
 		return "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5"
 	}
 
-	// For other networks, return a default (this may need to be updated for private networks)
+	// Default to testnet hash
 	return "0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5"
 }

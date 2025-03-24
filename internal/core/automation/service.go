@@ -21,7 +21,7 @@ type Service struct {
 	logger            *logger.Logger
 	triggerRepository models.TriggerRepository
 	functionService   *functions.Service
-	blockchainClient  *blockchain.Client
+	blockchainClient  blockchain.BlockchainClient
 	scheduler         *cron.Cron
 	triggers          map[int]*models.Trigger
 }
@@ -32,7 +32,7 @@ func NewService(
 	log *logger.Logger,
 	triggerRepository models.TriggerRepository,
 	functionService *functions.Service,
-	blockchainClient *blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 ) *Service {
 	// Create scheduler with seconds precision
 	scheduler := cron.New(cron.WithSeconds())

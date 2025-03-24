@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/R3E-Network/service_layer/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/your-org/neo-oracle/internal/config"
 )
 
 // Service handles application metrics and monitoring

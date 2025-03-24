@@ -51,7 +51,7 @@ type DBWalletStore struct {
 // NewDBWalletStore creates a new wallet store
 func NewDBWalletStore(db *sqlx.DB, logger *logger.Logger, cfg *config.NeoConfig, encryptionKey string) (*DBWalletStore, error) {
 	// Create wallet directory if it doesn't exist
-	walletPath := cfg.WalletPath
+	walletPath := "./wallet" // Default location if not specified
 	if err := os.MkdirAll(walletPath, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create wallet directory: %w", err)
 	}

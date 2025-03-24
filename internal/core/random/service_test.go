@@ -2,6 +2,7 @@ package random
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -121,9 +122,66 @@ type MockBlockchainClient struct {
 	mock.Mock
 }
 
-func (m *MockBlockchainClient) GetBlockHeight() (int64, error) {
+func (m *MockBlockchainClient) GetBlockHeight() (uint32, error) {
 	args := m.Called()
-	return args.Get(0).(int64), args.Error(1)
+	return args.Get(0).(uint32), args.Error(1)
+}
+
+func (m *MockBlockchainClient) GetBlock(height uint32) (interface{}, error) {
+	args := m.Called(height)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) GetTransaction(hash string) (interface{}, error) {
+	args := m.Called(hash)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) SendTransaction(tx interface{}) (string, error) {
+	args := m.Called(tx)
+	return args.Get(0).(string), args.Error(1)
+}
+
+func (m *MockBlockchainClient) InvokeContract(contractHash string, method string, params []interface{}) (map[string]interface{}, error) {
+	args := m.Called(contractHash, method, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+func (m *MockBlockchainClient) DeployContract(ctx context.Context, nefFile []byte, manifest json.RawMessage) (string, error) {
+	args := m.Called(ctx, nefFile, manifest)
+	return args.Get(0).(string), args.Error(1)
+}
+
+func (m *MockBlockchainClient) SubscribeToEvents(ctx context.Context, contractHash, eventName string, handler func(event interface{})) error {
+	args := m.Called(ctx, contractHash, eventName, handler)
+	return args.Error(0)
+}
+
+func (m *MockBlockchainClient) GetTransactionReceipt(ctx context.Context, hash string) (interface{}, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) IsTransactionInMempool(ctx context.Context, hash string) (bool, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0).(bool), args.Error(1)
+}
+
+func (m *MockBlockchainClient) CheckHealth(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockBlockchainClient) ResetConnections() {
+	m.Called()
+}
+
+func (m *MockBlockchainClient) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 // Helper function to setup test service
@@ -146,7 +204,7 @@ func TestCreateRequest(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		// Setup mocks
-		mockBlockchainClient.On("GetBlockHeight").Return(int64(100), nil).Once()
+		mockBlockchainClient.On("GetBlockHeight").Return(uint32(100), nil).Once()
 
 		expectedRequest := &models.RandomRequest{
 			ID:              1,
@@ -177,7 +235,7 @@ func TestCreateRequest(t *testing.T) {
 
 	t.Run("DefaultNumBytes", func(t *testing.T) {
 		// Setup mocks
-		mockBlockchainClient.On("GetBlockHeight").Return(int64(100), nil).Once()
+		mockBlockchainClient.On("GetBlockHeight").Return(uint32(100), nil).Once()
 
 		expectedRequest := &models.RandomRequest{
 			ID:              2,
@@ -222,7 +280,7 @@ func TestCreateRequest(t *testing.T) {
 
 	t.Run("NegativeDelayBlocks", func(t *testing.T) {
 		// Setup mocks
-		mockBlockchainClient.On("GetBlockHeight").Return(int64(100), nil).Once()
+		mockBlockchainClient.On("GetBlockHeight").Return(uint32(100), nil).Once()
 
 		expectedRequest := &models.RandomRequest{
 			ID:              3,
@@ -253,7 +311,7 @@ func TestCreateRequest(t *testing.T) {
 
 	t.Run("BlockchainError", func(t *testing.T) {
 		// Setup mocks
-		mockBlockchainClient.On("GetBlockHeight").Return(int64(0), errors.New("blockchain error")).Once()
+		mockBlockchainClient.On("GetBlockHeight").Return(uint32(0), errors.New("blockchain error")).Once()
 
 		expectedRequest := &models.RandomRequest{
 			ID:              4,
@@ -284,7 +342,7 @@ func TestCreateRequest(t *testing.T) {
 
 	t.Run("RepositoryError", func(t *testing.T) {
 		// Setup mocks
-		mockBlockchainClient.On("GetBlockHeight").Return(int64(100), nil).Once()
+		mockBlockchainClient.On("GetBlockHeight").Return(uint32(100), nil).Once()
 		mockRepo.On("CreateRequest", mock.AnythingOfType("*models.RandomRequest")).Return(nil, errors.New("database error")).Once()
 
 		// Call service

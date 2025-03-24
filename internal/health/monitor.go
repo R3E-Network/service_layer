@@ -7,8 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/your-org/neo-oracle/internal/common"
-	"github.com/your-org/neo-oracle/internal/config"
+	"github.com/R3E-Network/service_layer/internal/config"
 )
 
 // ServiceStatus represents the health status of a service
@@ -22,7 +21,7 @@ type ServiceStatus struct {
 
 // Monitor tracks service health and performs auto-recovery
 type Monitor struct {
-	services       map[string]common.Service
+	services       map[string]interface{}
 	statuses       map[string]*ServiceStatus
 	checkInterval  time.Duration
 	startTimes     map[string]time.Time
@@ -40,15 +39,15 @@ type RecoveryPolicy struct {
 }
 
 // NewMonitor creates a new health monitor
-func NewMonitor(cfg *config.HealthConfig) *Monitor {
+func NewMonitor(cfg *config.Config) *Monitor {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Monitor{
-		services:       make(map[string]common.Service),
+		services:       make(map[string]interface{}),
 		statuses:       make(map[string]*ServiceStatus),
 		startTimes:     make(map[string]time.Time),
 		recoveryPolicy: make(map[string]RecoveryPolicy),
-		checkInterval:  time.Duration(cfg.CheckIntervalSec) * time.Second,
+		checkInterval:  time.Duration(cfg.Health.CheckIntervalSec) * time.Second,
 		ctx:            ctx,
 		cancel:         cancel,
 	}
@@ -77,7 +76,7 @@ func (m *Monitor) Name() string {
 }
 
 // RegisterService adds a service to be monitored
-func (m *Monitor) RegisterService(name string, service common.Service) {
+func (m *Monitor) RegisterService(name string, service interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -185,12 +184,12 @@ func (m *Monitor) attemptServiceRecovery(serviceName string) {
 		time.Sleep(policy.RetryDelay)
 
 		// Stop the service first
-		if err := service.Stop(); err != nil {
+		if err := service.(interface{ Stop() error }).Stop(); err != nil {
 			log.Printf("Error stopping service %s: %v", serviceName, err)
 		}
 
 		// Start the service again
-		if err := service.Start(context.Background()); err != nil {
+		if err := service.(interface{ Start(context.Context) error }).Start(m.ctx); err != nil {
 			log.Printf("Error restarting service %s: %v", serviceName, err)
 			return
 		}
@@ -208,6 +207,56 @@ func (m *Monitor) attemptServiceRecovery(serviceName string) {
 			m.startTimes[serviceName] = time.Now() // Reset uptime
 		}
 	}()
+}
+
+// RecoverService attempts to restart a failed service
+func (m *Monitor) RecoverService(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	service, ok := m.services[name]
+	if !ok {
+		return fmt.Errorf("service %s not found", name)
+	}
+
+	policy, ok := m.recoveryPolicy[name]
+	if !ok {
+		policy = RecoveryPolicy{
+			MaxRetries: 3,
+			RetryDelay: 5 * time.Second,
+		}
+	}
+
+	if policy.CurrentRetries >= policy.MaxRetries {
+		return fmt.Errorf("exceeded max retries for service %s", name)
+	}
+
+	// Stop the service gracefully first
+	err := service.(interface{ Stop() error }).Stop()
+	if err != nil {
+		log.Printf("Error stopping service %s: %v", name, err)
+	}
+
+	// Wait for the retry delay
+	time.Sleep(policy.RetryDelay)
+
+	// Start the service again
+	err = service.(interface{ Start(context.Context) error }).Start(m.ctx)
+	if err != nil {
+		policy.CurrentRetries++
+		m.recoveryPolicy[name] = policy
+		m.statuses[name].Status = "failed"
+		m.statuses[name].Message = err.Error()
+		return fmt.Errorf("failed to recover service %s: %v", name, err)
+	}
+
+	// Reset retry counter on successful restart
+	policy.CurrentRetries = 0
+	m.recoveryPolicy[name] = policy
+	m.statuses[name].Status = "recovered"
+	m.startTimes[name] = time.Now()
+
+	return nil
 }
 
 // GetServiceStatus returns the current health status for a service

@@ -10,6 +10,7 @@ type Function struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
 	OwnerID    string    `json:"ownerId"`
+	UserID     int       `json:"userId"`
 	Code       string    `json:"code"`
 	SecretRefs []string  `json:"secretRefs,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
@@ -19,17 +20,21 @@ type Function struct {
 // ExecutionResult represents the outcome of a function execution
 type ExecutionResult struct {
 	ID            string        `json:"id"`
+	ExecutionID   string        `json:"executionId"`
 	FunctionID    string        `json:"functionId"`
 	Status        string        `json:"status"`
 	Result        interface{}   `json:"result"`
 	Error         string        `json:"error,omitempty"`
 	ExecutionTime time.Duration `json:"executionTime"`
+	StartTime     time.Time     `json:"startTime"`
+	EndTime       time.Time     `json:"endTime"`
 	Timestamp     time.Time     `json:"timestamp"`
 	GasUsed       float64       `json:"gasUsed,omitempty"`
+	Logs          []string      `json:"logs,omitempty"`
 }
 
-// Secret represents a securely stored credential
-type Secret struct {
+// FunctionSecret represents a securely stored credential for functions
+type FunctionSecret struct {
 	ID        string    `json:"id"`
 	OwnerID   string    `json:"ownerId"`
 	Name      string    `json:"name"`

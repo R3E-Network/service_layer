@@ -5,11 +5,11 @@ import (
 	"log"
 	"math/big"
 
+	"github.com/R3E-Network/service_layer/internal/models"
 	"github.com/joeqian10/neo3-gogogo/crypto"
 	"github.com/joeqian10/neo3-gogogo/helper"
 	"github.com/joeqian10/neo3-gogogo/sc"
 	"github.com/joeqian10/neo3-gogogo/tx"
-	"github.com/your-org/neo-oracle/internal/models"
 )
 
 // NeoOperations provides Neo N3-specific blockchain operations

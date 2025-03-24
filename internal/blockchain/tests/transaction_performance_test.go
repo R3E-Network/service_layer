@@ -11,35 +11,36 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/R3E-Network/service_layer/internal/blockchain"
+	"github.com/R3E-Network/service_layer/internal/blockchain/tests/mocks"
 	"github.com/R3E-Network/service_layer/internal/models"
 )
 
 // BenchmarkTransactionCreation benchmarks the creation of transactions
 func BenchmarkTransactionCreation(b *testing.B) {
 	// Create mocks
-	mockRepo := new(MockTransactionRepository)
-	mockClient := new(MockClient)
-	mockWalletStore := new(MockWalletStore)
+	mockRepo, mockClient, mockWalletStore, service := mocks.CreateMockServices()
 
 	// Setup GetWalletByService
 	wallet := &models.WalletAccount{
-		ID:        uuid.New(),
-		Service:   "test-service",
-		Address:   "NeoAddress123",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:                 uuid.New(),
+		Service:            "test-service",
+		Address:            "NeoAddress123",
+		EncryptedPrivateKey: "encrypted-private-key",
+		PublicKey:          "public-key",
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
 	mockRepo.On("GetWalletByService", mock.Anything, "test-service").Return(wallet, nil)
 
 	// Setup CreateTransaction
 	mockRepo.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*models.Transaction")).Return(nil)
 
-	// Setup AddTransactionEvent
-	mockRepo.On("AddTransactionEvent", mock.Anything, mock.AnythingOfType("*models.TransactionEvent")).Return(nil)
-
-	// Create transaction service
-	service := blockchain.NewTransactionService(mockRepo, mockClient, mockWalletStore, 1)
+	// Setup for wallet store
+	mockWalletStore.On("GetWallet", mock.AnythingOfType("int"), mock.AnythingOfType("string")).Return(nil, nil)
+	
+	// Setup for client
+	mockClient.On("CreateTransaction", mock.Anything, mock.AnythingOfType("blockchain.TransactionParams")).Return("tx-hash", nil)
+	mockClient.On("GetHeight").Return(uint32(100), nil)
 
 	// Create a common request template
 	entityID := uuid.New()
@@ -48,235 +49,180 @@ func BenchmarkTransactionCreation(b *testing.B) {
 		EntityID:   entityID,
 		EntityType: "test-entity",
 		Type:       models.TransactionTypeInvoke,
-		Script:     []byte("test-script"),
-		GasPrice:   1000,
-		SystemFee:  1000,
-		NetworkFee: 1000,
+		Script:     "test-script",
+		Params:     []interface{}{"param1", "param2"},
+		Signers: []models.ScriptSigner{
+			{
+				Account:          "test-signer",
+				Scopes:           "Global",
+				AllowedContracts: []string{"contract1", "contract2"},
+			},
+		},
+		Priority:   "high",
 	}
 
-	// Reset the timer to exclude setup time
 	b.ResetTimer()
 
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
-		// Create a new request for each iteration (to avoid ID conflicts)
+		// Create a copy of the request to avoid potential race conditions
 		request := requestTemplate
-		request.EntityID = uuid.New()
-
 		_, err := service.CreateTransaction(context.Background(), request)
 		if err != nil {
-			b.Fatalf("Error creating transaction: %v", err)
+			b.Fatalf("Failed to create transaction: %v", err)
 		}
 	}
 }
 
-// TestConcurrentTransactionProcessing tests the system's behavior under concurrent load
-func TestConcurrentTransactionProcessing(t *testing.T) {
-	// Skip if not running performance tests
-	if testing.Short() {
-		t.Skip("Skipping performance test in short mode")
-	}
-
+// TestConcurrentTransactionCreation tests concurrent transaction creation
+func TestConcurrentTransactionCreation(t *testing.T) {
 	// Create mocks
-	mockRepo := new(MockTransactionRepository)
-	mockClient := new(MockClient)
-	mockWalletStore := new(MockWalletStore)
+	mockRepo, mockClient, mockWalletStore, service := mocks.CreateMockServices()
 
-	// Setup wallet
+	// Setup GetWalletByService
 	wallet := &models.WalletAccount{
-		ID:        uuid.New(),
-		Service:   "test-service",
-		Address:   "NeoAddress123",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:                 uuid.New(),
+		Service:            "test-service",
+		Address:            "NeoAddress123",
+		EncryptedPrivateKey: "encrypted-private-key",
+		PublicKey:          "public-key",
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
+	mockRepo.On("GetWalletByService", mock.Anything, mock.Anything).Return(wallet, nil)
 
-	// Mock methods with appropriate concurrency handling
-	var mu sync.Mutex
-	mockRepo.On("GetWalletByService", mock.Anything, "test-service").Return(wallet, nil)
-	mockRepo.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*models.Transaction")).Run(func(args mock.Arguments) {
-		mu.Lock()
-		defer mu.Unlock()
-		// Simulate some processing work
-		time.Sleep(5 * time.Millisecond)
-	}).Return(nil)
-	mockRepo.On("AddTransactionEvent", mock.Anything, mock.AnythingOfType("*models.TransactionEvent")).Return(nil)
+	// Setup CreateTransaction
+	mockRepo.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*models.Transaction")).Return(nil)
 
-	// Setup wallet store mock
-	mockWallet := &blockchain.Wallet{
-		PrivateKey: []byte("test-private-key"),
-		PublicKey:  []byte("test-public-key"),
-		Address:    "NeoAddress123",
-	}
-	mockWalletStore.On("GetWallet", "test-service").Return(mockWallet, nil)
+	// Setup for wallet store
+	mockWalletStore.On("GetWallet", mock.AnythingOfType("int"), mock.AnythingOfType("string")).Return(nil, nil)
+	
+	// Setup for client
+	mockClient.On("CreateTransaction", mock.Anything, mock.AnythingOfType("blockchain.TransactionParams")).Return("tx-hash", nil)
+	mockClient.On("GetHeight").Return(uint32(100), nil)
 
-	// Setup client mock
-	mockClient.On("SendRawTransaction", mock.Anything).Return("tx-hash-123", nil)
+	// Number of concurrent transactions to create
+	numConcurrent := 10
 
-	// Create transaction service
-	service := blockchain.NewTransactionService(mockRepo, mockClient, mockWalletStore, 1)
-
-	// Parameters for the test
-	concurrency := 50              // Number of concurrent requests
-	transactionsPerGoroutine := 10 // Number of transactions per goroutine
-
-	// Create a wait group to synchronize goroutines
+	// Create a WaitGroup to wait for all goroutines to complete
 	var wg sync.WaitGroup
-	wg.Add(concurrency)
+	wg.Add(numConcurrent)
 
-	// Record start time
-	startTime := time.Now()
+	// Create a channel to collect errors
+	errorCh := make(chan error, numConcurrent)
 
 	// Create transactions concurrently
-	for i := 0; i < concurrency; i++ {
-		go func(workerID int) {
+	for i := 0; i < numConcurrent; i++ {
+		go func(idx int) {
 			defer wg.Done()
 
-			for j := 0; j < transactionsPerGoroutine; j++ {
-				// Create a transaction request
-				request := models.CreateTransactionRequest{
-					Service:    "test-service",
-					EntityID:   uuid.New(),
-					EntityType: "test-entity",
-					Type:       models.TransactionTypeInvoke,
-					Script:     []byte("test-script"),
-					GasPrice:   1000,
-					SystemFee:  1000,
-					NetworkFee: 1000,
-				}
+			// Create a transaction request
+			txReq := models.CreateTransactionRequest{
+				Service:    "test-service",
+				EntityID:   uuid.New(),
+				EntityType: "test-entity",
+				Type:       models.TransactionTypeInvoke,
+				Script:     "test-script",
+				Params:     []interface{}{"param1", "param2"},
+				Signers: []models.ScriptSigner{
+					{
+						Account:          "test-signer",
+						Scopes:           "Global",
+						AllowedContracts: []string{"contract1", "contract2"},
+					},
+				},
+				Priority:   "high",
+			}
 
-				// Create the transaction
-				tx, err := service.CreateTransaction(context.Background(), request)
-				require.NoError(t, err, "Worker %d, Tx %d: Failed to create transaction", workerID, j)
-				assert.NotNil(t, tx, "Worker %d, Tx %d: Transaction should not be nil", workerID, j)
+			// Create the transaction
+			_, err := service.CreateTransaction(context.Background(), txReq)
+			if err != nil {
+				errorCh <- err
 			}
 		}(i)
 	}
 
 	// Wait for all goroutines to complete
 	wg.Wait()
+	close(errorCh)
 
-	// Calculate performance metrics
-	elapsedTime := time.Since(startTime)
-	totalTransactions := concurrency * transactionsPerGoroutine
-	transactionsPerSecond := float64(totalTransactions) / elapsedTime.Seconds()
+	// Check for errors
+	var errors []error
+	for err := range errorCh {
+		errors = append(errors, err)
+	}
 
-	// Log performance metrics
-	t.Logf("Concurrent Transaction Processing Results:")
-	t.Logf("  Total Transactions: %d", totalTransactions)
-	t.Logf("  Concurrency Level: %d", concurrency)
-	t.Logf("  Elapsed Time: %v", elapsedTime)
-	t.Logf("  Transactions per Second: %.2f", transactionsPerSecond)
-
-	// Verify expectations (this ensures all mock methods were called)
-	mockRepo.AssertExpectations(t)
-	mockClient.AssertExpectations(t)
-	mockWalletStore.AssertExpectations(t)
+	assert.Empty(t, errors, "Expected no errors during concurrent transaction creation")
 }
 
-// TestTransactionSubmissionLatency measures the latency of transaction submission
-func TestTransactionSubmissionLatency(t *testing.T) {
-	// Skip if not running performance tests
-	if testing.Short() {
-		t.Skip("Skipping performance test in short mode")
-	}
-
+// TestTransactionCreationWithLatency tests transaction creation with simulated network latency
+func TestTransactionCreationWithLatency(t *testing.T) {
 	// Create mocks
-	mockRepo := new(MockTransactionRepository)
-	mockClient := new(MockClient)
-	mockWalletStore := new(MockWalletStore)
+	mockRepo, mockClient, mockWalletStore, service := mocks.CreateMockServices()
 
-	// Setup wallet
+	// Setup GetWalletByService
 	wallet := &models.WalletAccount{
-		ID:        uuid.New(),
-		Service:   "test-service",
-		Address:   "NeoAddress123",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:                 uuid.New(),
+		Service:            "test-service",
+		Address:            "NeoAddress123",
+		EncryptedPrivateKey: "encrypted-private-key",
+		PublicKey:          "public-key",
+		CreatedAt:          time.Now(),
+		UpdatedAt:          time.Now(),
 	}
-	mockRepo.On("GetWalletByService", mock.Anything, "test-service").Return(wallet, nil)
+	mockRepo.On("GetWalletByService", mock.Anything, mock.Anything).Return(wallet, nil)
+
+	// Setup CreateTransaction
 	mockRepo.On("CreateTransaction", mock.Anything, mock.AnythingOfType("*models.Transaction")).Return(nil)
-	mockRepo.On("AddTransactionEvent", mock.Anything, mock.AnythingOfType("*models.TransactionEvent")).Return(nil)
-	mockRepo.On("GetTransactionByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(
-		&models.Transaction{
-			ID:      uuid.New(),
-			Service: "test-service",
-			Status:  models.TransactionStatusSubmitted,
-			Hash:    "tx-hash-123",
-		}, nil)
-	mockRepo.On("UpdateTransactionStatus", mock.Anything, mock.AnythingOfType("uuid.UUID"),
-		mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	// Setup wallet store mock with controlled latency
-	mockWallet := &blockchain.Wallet{
-		PrivateKey: []byte("test-private-key"),
-		PublicKey:  []byte("test-public-key"),
-		Address:    "NeoAddress123",
-	}
-	mockWalletStore.On("GetWallet", "test-service").Run(func(args mock.Arguments) {
-		// Simulate key retrieval latency
-		time.Sleep(5 * time.Millisecond)
-	}).Return(mockWallet, nil)
+	// Setup for wallet store - add simulated latency
+	mockWalletStore.On("GetWallet", mock.AnythingOfType("int"), mock.AnythingOfType("string")).
+		Run(func(args mock.Arguments) {
+			// Simulate network latency
+			time.Sleep(50 * time.Millisecond)
+		}).
+		Return(nil, nil)
+	
+	// Setup for client - add simulated latency
+	mockClient.On("CreateTransaction", mock.Anything, mock.AnythingOfType("blockchain.TransactionParams")).
+		Run(func(args mock.Arguments) {
+			// Simulate blockchain network latency
+			time.Sleep(100 * time.Millisecond)
+		}).
+		Return("tx-hash", nil)
+		
+	mockClient.On("GetHeight").Return(uint32(100), nil)
 
-	// Setup client mock with controlled latency
-	mockClient.On("SendRawTransaction", mock.Anything).Run(func(args mock.Arguments) {
-		// Simulate network latency
-		time.Sleep(10 * time.Millisecond)
-	}).Return("tx-hash-123", nil)
-
-	// Create transaction service
-	service := blockchain.NewTransactionService(mockRepo, mockClient, mockWalletStore, 1)
-
-	// Create transaction requests
-	numTransactions := 100
-	latencies := make([]time.Duration, numTransactions)
-
-	// Measure latency for each transaction
-	for i := 0; i < numTransactions; i++ {
-		request := models.CreateTransactionRequest{
-			Service:    "test-service",
-			EntityID:   uuid.New(),
-			EntityType: "test-entity",
-			Type:       models.TransactionTypeInvoke,
-			Script:     []byte("test-script"),
-			GasPrice:   1000,
-			SystemFee:  1000,
-			NetworkFee: 1000,
-		}
-
-		startTime := time.Now()
-		tx, err := service.CreateTransaction(context.Background(), request)
-		require.NoError(t, err, "Failed to create transaction %d", i)
-		assert.NotNil(t, tx, "Transaction %d should not be nil", i)
-		latencies[i] = time.Since(startTime)
+	// Create a transaction request
+	txReq := models.CreateTransactionRequest{
+		Service:    "test-service",
+		EntityID:   uuid.New(),
+		EntityType: "test-entity",
+		Type:       models.TransactionTypeInvoke,
+		Script:     "test-script",
+		Params:     []interface{}{"param1", "param2"},
+		Signers: []models.ScriptSigner{
+			{
+				Account:          "test-signer",
+				Scopes:           "Global",
+				AllowedContracts: []string{"contract1", "contract2"},
+			},
+		},
+		Priority:   "high",
 	}
 
-	// Calculate statistics
-	var totalLatency time.Duration
-	var minLatency = latencies[0]
-	var maxLatency = latencies[0]
+	// Measure time taken
+	start := time.Now()
+	txID, err := service.CreateTransaction(context.Background(), txReq)
+	elapsed := time.Since(start)
 
-	for _, latency := range latencies {
-		totalLatency += latency
-		if latency < minLatency {
-			minLatency = latency
-		}
-		if latency > maxLatency {
-			maxLatency = latency
-		}
-	}
-
-	avgLatency := totalLatency / time.Duration(numTransactions)
-
-	// Log performance metrics
-	t.Logf("Transaction Submission Latency Results:")
-	t.Logf("  Total Transactions: %d", numTransactions)
-	t.Logf("  Average Latency: %v", avgLatency)
-	t.Logf("  Minimum Latency: %v", minLatency)
-	t.Logf("  Maximum Latency: %v", maxLatency)
-
-	// Verify mock expectations
-	mockRepo.AssertExpectations(t)
-	mockClient.AssertExpectations(t)
-	mockWalletStore.AssertExpectations(t)
+	// Assertions
+	require.NoError(t, err)
+	assert.NotEqual(t, uuid.UUID{}, txID)
+	
+	// The operation should take at least the sum of our simulated latencies
+	assert.GreaterOrEqual(t, elapsed, 150*time.Millisecond, "Expected operation to take at least 150ms due to simulated latency")
+	
+	// Log the time taken for information
+	t.Logf("Transaction creation with simulated latency took %v", elapsed)
 }

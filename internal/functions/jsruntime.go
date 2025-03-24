@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/R3E-Network/service_layer/internal/models"
+	"github.com/R3E-Network/service_layer/internal/secrets"
 	"github.com/dop251/goja"
-	"github.com/your-org/neo-oracle/internal/models"
-	"github.com/your-org/neo-oracle/internal/secrets"
 )
 
 // JSRuntime provides JavaScript execution capabilities

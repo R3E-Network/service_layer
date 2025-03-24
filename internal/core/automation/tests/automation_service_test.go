@@ -98,9 +98,71 @@ func (m *MockFunctionService) ExecuteFunction(ctx context.Context, functionID in
 	return args.Get(0).(*models.ExecutionResult), args.Error(1)
 }
 
-// MockBlockchainClient is a mock implementation of the blockchain.Client
+// MockBlockchainClient is a mock implementation of the blockchain.BlockchainClient interface
 type MockBlockchainClient struct {
 	mock.Mock
+}
+
+func (m *MockBlockchainClient) GetBlockHeight() (uint32, error) {
+	args := m.Called()
+	return args.Get(0).(uint32), args.Error(1)
+}
+
+func (m *MockBlockchainClient) GetBlock(height uint32) (interface{}, error) {
+	args := m.Called(height)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) GetTransaction(hash string) (interface{}, error) {
+	args := m.Called(hash)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) SendTransaction(tx interface{}) (string, error) {
+	args := m.Called(tx)
+	return args.Get(0).(string), args.Error(1)
+}
+
+func (m *MockBlockchainClient) InvokeContract(contractHash string, method string, params []interface{}) (map[string]interface{}, error) {
+	args := m.Called(contractHash, method, params)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]interface{}), args.Error(1)
+}
+
+func (m *MockBlockchainClient) DeployContract(ctx context.Context, nefFile []byte, manifest json.RawMessage) (string, error) {
+	args := m.Called(ctx, nefFile, manifest)
+	return args.Get(0).(string), args.Error(1)
+}
+
+func (m *MockBlockchainClient) SubscribeToEvents(ctx context.Context, contractHash, eventName string, handler func(event interface{})) error {
+	args := m.Called(ctx, contractHash, eventName, handler)
+	return args.Error(0)
+}
+
+func (m *MockBlockchainClient) GetTransactionReceipt(ctx context.Context, hash string) (interface{}, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockBlockchainClient) IsTransactionInMempool(ctx context.Context, hash string) (bool, error) {
+	args := m.Called(ctx, hash)
+	return args.Get(0).(bool), args.Error(1)
+}
+
+func (m *MockBlockchainClient) CheckHealth(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockBlockchainClient) ResetConnections() {
+	m.Called()
+}
+
+func (m *MockBlockchainClient) Close() error {
+	args := m.Called()
+	return args.Error(0)
 }
 
 // TestCreateTrigger tests the CreateTrigger method

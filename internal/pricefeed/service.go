@@ -26,7 +26,7 @@ import (
 type Service struct {
 	config           *config.Config
 	repository       models.PriceFeedRepository
-	blockchainClient blockchain.Client
+	blockchainClient blockchain.BlockchainClient
 	teeManager       *tee.Manager
 	httpClient       *http.Client
 	wrapper          *Wrapper
@@ -36,7 +36,7 @@ type Service struct {
 func NewService(
 	config *config.Config,
 	repository models.PriceFeedRepository,
-	blockchainClient blockchain.Client,
+	blockchainClient blockchain.BlockchainClient,
 	teeManager *tee.Manager,
 ) (*Service, error) {
 	httpClient := &http.Client{
@@ -51,7 +51,7 @@ func NewService(
 		config,            // Config
 		log,               // Logger
 		repository,        // Repository
-		&blockchainClient, // Blockchain Client
+		blockchainClient,  // Blockchain Client
 		nil,               // GasBank Service (optional)
 		teeManager,        // TEE Manager
 	)
